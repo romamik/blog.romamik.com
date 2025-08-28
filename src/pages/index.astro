@@ -1,16 +1,21 @@
 ---
-
+import BlogLayout from "../layouts/BlogLayout.astro";
+import { getPosts } from "../lib/blog";
+const posts = await getPosts();
 ---
 
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
-	</head>
-	<body>
-		<h1>Astro</h1>
-	</body>
-</html>
+<BlogLayout title="My Blog">
+  <h2>Latest Posts</h2>
+  <ul>
+    {posts.map((post) => (
+      <li>
+        <a href={`/blog/${post.slug}/`}>
+          {post.data.title} {post.data.draft ? "(draft)" : ""}
+        </a>
+        <span>
+          — {post.data.pubDate.toISOString().slice(0, 10)}
+        </span>
+      </li>
+    ))}
+  </ul>
+</BlogLayout>

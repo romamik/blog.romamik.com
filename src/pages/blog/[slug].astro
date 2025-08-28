@@ -1,0 +1,26 @@
+---
+import BlogLayout from "../../layouts/BlogLayout.astro";
+import { getPosts } from "../../lib/blog";
+
+export async function getStaticPaths() {
+  const posts = await getPosts();
+  return posts.map((post) => ({
+    params: { slug: post.slug },
+    props: { post },
+  }));
+}
+
+const { post } = Astro.props;
+const { Content } = await post.render(); // MD ➜ HTML with Expressive Code
+const { data } = post;
+---
+
+<BlogLayout title={data.title}>
+  <article class="prose max-w-none">
+    <h1>{data.title}</h1>
+    <p>
+      {data.pubDate.toLocaleDateString()}
+    </p>
+    <Content />
+  </article>
+</BlogLayout>

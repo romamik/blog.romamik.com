@@ -3,12 +3,21 @@
   "type": "module",
   "version": "0.0.1",
   "scripts": {
-    "dev": "astro dev",
+    "dev": "concurrently --raw --handle-input 'npm run dev-server' 'npm run check-watch'",
+    "dev-server": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
+    "check": "astro check",
+    "check-watch": "astro check --watch --preserveWatchOutput",
     "astro": "astro"
   },
   "dependencies": {
-    "astro": "^5.13.4"
+    "@astrojs/check": "^0.9.4",
+    "astro": "^5.13.4",
+    "astro-expressive-code": "^0.41.3",
+    "typescript": "^5.9.2"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
   }
 }
