@@ -1,0 +1,22 @@
+---
+interface Heading {
+  text: string;
+  slug: string;
+  children?: Heading[];
+}
+
+const { headingTree } = Astro.props as { headingTree: Heading[] };
+---
+
+<ul>
+  {
+    headingTree?.map((heading) => (
+      <li>
+        <a href={`#${heading.slug}`}>{heading.text}</a>
+        {heading.children && heading.children.length > 0 ? (
+          <Astro.self headings={heading.children} />
+        ) : null}
+      </li>
+    ))
+  }
+</ul>

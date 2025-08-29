@@ -3,9 +3,14 @@ import { defineConfig } from "astro/config";
 
 import expressiveCode from "astro-expressive-code";
 
+import tailwindcss from "@tailwindcss/vite";
+
+import icon from "astro-icon";
+
 // https://astro.build/config
 export default defineConfig({
   integrations: [
+    icon(),
     expressiveCode({
       useDarkModeMediaQuery: true,
       themeCssSelector: (theme, context) => {
@@ -24,4 +29,8 @@ export default defineConfig({
       },
     }),
   ],
+
+  vite: {
+    plugins: [tailwindcss()],
+  },
 });

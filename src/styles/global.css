@@ -1,0 +1,63 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
+/* 
+prevent flickering when selecting dark mode after page load: do not show anything before theme is selected 
+but only if js is enabled 
+*/
+html:not(.no-js):not([data-theme]) body {
+  display: none;
+}
+
+/* class for elements to show only with js enabled */
+html.no-js .js-only {
+  display: none;
+}
+
+/* fix scrolling by anchor, take account for fixed header */
+:target::before {
+  content: "";
+  display: block;
+  height: --spacing(12); /* fixed header height*/
+  margin: --spacing(-12) 0 0; /* negative fixed header height */
+}
+
+@layer components {
+  .theme-btn-container {
+    @apply text-xs flex gap-0 border-1 rounded-sm 
+      bg-gray-300 text-gray-900 border-gray-400 dark:bg-gray-700 
+      dark:text-gray-100 dark:border-gray-600;
+  }
+  .theme-btn {
+    @apply px-1 hover:text-gray-100 active:text-black dark:hover:text-gray-900 dark:active:text-white;
+  }
+  .theme-btn.active {
+    @apply bg-gray-400 dark:bg-gray-600;
+  }
+
+  .btn {
+    @apply border-1 rounded-sm 
+      bg-gray-300 text-gray-900 border-gray-400 hover:bg-gray-100 active:bg-white
+      dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 dark:hover:bg-gray-900 dark:active:bg-black;
+  }
+
+  /* 
+  table of contents: 
+    hidden by default
+    shown when there is class toc-open
+    shown when screen is wider than breakpoint-md == 48rem, same as "md:" class
+  */
+  #toc {
+    display: none;
+  }
+  #toc.toc-open {
+    display: block;
+  }
+  @media (width >= 48rem) {
+    #toc {
+      display: block !important;
+    }
+  }
+}

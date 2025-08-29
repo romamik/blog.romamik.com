@@ -6,8 +6,6 @@ draft: true
 other: 10
 ---
 
-# My Second Post
-
 This is my first blog post written in **Markdown**.  
 Here's some highlighted code:
 

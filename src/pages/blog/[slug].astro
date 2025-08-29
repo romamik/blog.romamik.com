@@ -1,6 +1,8 @@
 ---
+import type { MarkdownHeading } from "astro";
 import MainLayout from "../../layouts/MainLayout.astro";
 import { getPosts } from "../../lib/blog";
+import HeadingTree from "../../layouts/HeadingTree.astro";
 
 export async function getStaticPaths() {
   const posts = await getPosts();
@@ -11,16 +13,45 @@ export async function getStaticPaths() {
 }
 
 const { post } = Astro.props;
-const { Content } = await post.render(); // MD ➜ HTML with Expressive Code
-const { data } = post;
+const { Content, headings } = await post.render();
+const {
+  data: { title },
+  formattedDate,
+} = post;
+
+// Helper function: build a nested tree based on heading.depth
+type Heading = MarkdownHeading & {
+  children?: Heading[];
+  parent?: Heading;
+};
+function buildHeadingTree(headings: Heading[]): Heading[] {
+  let current: Heading = { text: "", slug: "", depth: 0 };
+  for (const heading of headings) {
+    while (current.parent && heading.depth <= current.depth) {
+      current = current.parent;
+    }
+    if (!current.children) current.children = [];
+    heading.parent = current;
+    current.children.push(heading);
+    current = heading;
+  }
+  while (current.parent) {
+    current = current.parent;
+  }
+  return current.children ?? [];
+}
+
+const headingTree = buildHeadingTree(headings);
+console.log(headings, headingTree);
 ---
 
-<MainLayout title={data.title}>
-  <article class="prose max-w-none">
-    <h1>{data.title}</h1>
-    <p>
-      {data.pubDate.toLocaleDateString()}
-    </p>
-    <Content />
-  </article>
+---
+
+<MainLayout title={title}>
+  <sub>{formattedDate}</sub>
+  <h1>{title}</h1>
+  <Content />
+  <div slot="toc">
+    <HeadingTree {headingTree} />
+  </div>
 </MainLayout>
