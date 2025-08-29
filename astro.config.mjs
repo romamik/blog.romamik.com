@@ -20,9 +20,7 @@ export default defineConfig({
         let index = context.styleVariants.findIndex(
           (variant) => variant.theme === theme
         );
-        console.log(theme.name, index);
         if (index == 1) {
-          // no css selector for light variant - default
           return "[data-theme='light']";
         }
         return "[data-theme='dark']";
