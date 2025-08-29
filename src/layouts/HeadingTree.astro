@@ -1,16 +1,16 @@
 ---
-interface Heading {
-  text: string;
-  slug: string;
-  children?: Heading[];
-}
+import type { MarkdownHeading } from "astro";
 
-const { headingTree } = Astro.props as { headingTree: Heading[] };
+type Heading = MarkdownHeading & {
+  children?: Heading[];
+};
+
+const { headings } = Astro.props as { headings: Heading[] };
 ---
 
 <ul>
   {
-    headingTree?.map((heading) => (
+    headings?.map((heading) => (
       <li>
         <a href={`#${heading.slug}`}>{heading.text}</a>
         {heading.children && heading.children.length > 0 ? (

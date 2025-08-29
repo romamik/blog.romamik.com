@@ -13,7 +13,7 @@ export async function getStaticPaths() {
 }
 
 const { post } = Astro.props;
-const { Content, headings } = await post.render();
+const { Content, headings: mdHeadings } = await post.render();
 const {
   data: { title },
   formattedDate,
@@ -24,34 +24,31 @@ type Heading = MarkdownHeading & {
   children?: Heading[];
   parent?: Heading;
 };
-function buildHeadingTree(headings: Heading[]): Heading[] {
-  let current: Heading = { text: "", slug: "", depth: 0 };
-  for (const heading of headings) {
-    while (current.parent && heading.depth <= current.depth) {
+function buildHeadingTree(headings: MarkdownHeading[]): Heading[] {
+  let current: Heading = { text: title, slug: "title-top", depth: 0 };
+  for (const mdHeading of headings) {
+    while (current.parent && mdHeading.depth <= current.depth) {
       current = current.parent;
     }
+    const heading = { ...mdHeading, parent: current };
     if (!current.children) current.children = [];
-    heading.parent = current;
     current.children.push(heading);
     current = heading;
   }
   while (current.parent) {
     current = current.parent;
   }
-  return current.children ?? [];
+  return [current];
 }
 
-const headingTree = buildHeadingTree(headings);
-console.log(headings, headingTree);
----
-
+const headings = buildHeadingTree(mdHeadings);
 ---
 
 <MainLayout title={title}>
   <sub>{formattedDate}</sub>
-  <h1>{title}</h1>
+  <h1 id="title-top">{title}</h1>
   <Content />
-  <div slot="toc">
-    <HeadingTree {headingTree} />
+  <div slot="toc" class="prose prose-sm dark:prose-invert max-w-none">
+    <HeadingTree {headings} />
   </div>
 </MainLayout>
