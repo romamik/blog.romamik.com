@@ -1,5 +1,5 @@
 ---
-import BlogLayout from "../../layouts/BlogLayout.astro";
+import MainLayout from "../../layouts/MainLayout.astro";
 import { getPosts } from "../../lib/blog";
 
 export async function getStaticPaths() {
@@ -15,7 +15,7 @@ const { Content } = await post.render(); // MD ➜ HTML with Expressive Code
 const { data } = post;
 ---
 
-<BlogLayout title={data.title}>
+<MainLayout title={data.title}>
   <article class="prose max-w-none">
     <h1>{data.title}</h1>
     <p>
@@ -23,4 +23,4 @@ const { data } = post;
     </p>
     <Content />
   </article>
-</BlogLayout>
+</MainLayout>

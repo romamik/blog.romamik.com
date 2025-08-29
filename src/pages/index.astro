@@ -1,21 +1,27 @@
 ---
-import BlogLayout from "../layouts/BlogLayout.astro";
+import MainLayout from "../layouts/MainLayout.astro";
 import { getPosts } from "../lib/blog";
 const posts = await getPosts();
 ---
 
-<BlogLayout title="My Blog">
-  <h2>Latest Posts</h2>
+<MainLayout title="Home">
+  <h3>Latest Posts</h3>
   <ul>
-    {posts.map((post) => (
-      <li>
-        <a href={`/blog/${post.slug}/`}>
-          {post.data.title} {post.data.draft ? "(draft)" : ""}
-        </a>
-        <span>
-          — {post.data.pubDate.toISOString().slice(0, 10)}
-        </span>
-      </li>
-    ))}
+    {
+      posts.map((post) => (
+        <li>
+          <a href={`/blog/${post.slug}/`}>
+            {post.data.title} {post.data.draft ? "(draft)" : ""}
+          </a>
+          <span>
+            {post.data.pubDate.toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "long",
+              day: "2-digit",
+            })}
+          </span>
+        </li>
+      ))
+    }
   </ul>
-</BlogLayout>
+</MainLayout>
