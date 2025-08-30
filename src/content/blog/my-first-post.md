@@ -2,6 +2,7 @@
 title: "My First Post"
 pubDate: 2025-08-28
 description: "Getting started with my Astro blog."
+draft: true
 ---
 ## Intro
 This is my first blog post written in **Markdown**.  
