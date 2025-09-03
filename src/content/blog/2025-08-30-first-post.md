@@ -31,7 +31,7 @@ And a couple of days ago, I stumbled upon [Expressive Code](https://expressive-c
 
 Here is a demo:
 
-```rs wrap line-numbers collapse={1-13, 22-32} collapseStyle=collapsible-auto del={18} ins={19}
+```rs line-numbers collapse={1-13, 22-32} collapseStyle=collapsible-auto del={18} ins={19}
 use typed_eval::{Compiler, SupportedType};
 
 #[derive(SupportedType)]

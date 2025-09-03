@@ -15,6 +15,11 @@ export default defineConfig({
     icon(),
     expressiveCode({
       useDarkModeMediaQuery: true,
+      defaultProps: {
+        wrap: true,
+        preserveIndent: true,
+        hangingIndent: 4,
+      },
       plugins: [pluginCollapsibleSections(), pluginLineNumbers()],
       themeCssSelector: (theme, context) => {
         // assume there are two themes and first is dark variant, second is light variant
