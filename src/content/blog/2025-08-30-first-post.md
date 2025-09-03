@@ -4,15 +4,15 @@ pubDate: 2025-08-30
 description: "About this blog"
 ---
 
-I was thinking about having a blog for years. Finally, I have set one up. I have a few projects I want to write about here, but in this post, I'll just share a bit about the blog itself.
+I had been thinking about having a blog for years. I've finally set one up. I have a few projects I want to write about here, but in this post, I'll just share a bit about the blog itself.
 
 ## Astro
 
-This website uses [Astro](https://astro.build). I use it as a static site generator, although Astro describes itself as a web framework. I never used it before, but for my simple usecase it was straightforward and I was building something in less then 10 minutes after getting to their website. 
+This website uses [Astro](https://astro.build). I use it as a static site generator, although Astro describes itself as a web framework. I had never used it before, but for my simple use case, it was straightforward. I was building something in less than 10 minutes after I got to their website.
 
-Initially, I was planning to use a simple static site generator, like for example [Zola](https://www.getzola.org/). But there was one feature I really wanted to have: diff syntax highlighting, and by that I mean highlighting changes in code without losing the highlighting of the language itself. Most of the tools I looked at did not support that. So, when I stumbled upon [Expressive Code](https://expressive-code.com/) which had this feature and many others, I decided that it is what I need, and it turned out that the easiest way to have it was to use Astro. 
+Initially, I was planning to use a simple static site generator, like [Zola](https://www.getzola.org/). But there was one feature I really wanted: diff syntax highlighting, which means highlighting code changes without losing the highlighting of the language itself. Most of the tools I looked at did not support that. So, when I stumbled upon [Expressive Code](https://expressive-code.com/) which had this and many other features, I decided it was exactly what I needed. It turned out that the easiest way to use it was with Astro. 
 
-Just a little demo of the code block with the code diff:
+Here’s a small demo of a code block with a code diff:
 ```diff language=rs
 fn main() {
 +     println!("Hello world!")
@@ -22,9 +22,9 @@ fn main() {
 
 ## Layout
 
-The layout of the site is simple and I used [tailwindcss](https://tailwindcss.com/) for it without any component frameworks. As tailwind itself resets all styles for all elements, I used [tailwindcss-typography](https://github.com/tailwindlabs/tailwindcss-typography) plugin, which provides styles for headings, lists, paragraphs, etc.
+The site's layout is simple, and I used [tailwindcss](https://tailwindcss.com/) without any component frameworks. Since Tailwind CSS resets all styles by default, I used the [tailwindcss-typography](https://github.com/tailwindlabs/tailwindcss-typography) plugin, which provides styles for headings, lists, paragraphs, and more.
 
-There is a fixed header above the page, it is implemented as a fixed element and the main element has a top padding so that it is not covered by the header. For me, this feels hacky, but actually it is a very common approach. There was a problem when navigating between a links on the same page because of this: by default browsers scroll the page so that the target element is on top of the screen, and in my case that meant that such element would be behind the header when scrolled to. This was fixed by this css code, which creates a displaced element before the target, and this element is taken into account when scrolling:
+There is a fixed header at the top of the page, implemented as an element with `position: fixed`. The main element has a top padding so that it is not covered by the header. This feels a bit hacky to me, but it is actually a very common approach. Because of this, I had a problem when navigating to links on the same page. By default, browsers scroll the page so the target element is at the top of the screen, but in my case, this meant the element would be hidden behind the header. I fixed this with the following CSS code, which creates a displaced element before the target that is taken into account during scrolling:
 ```css
 /* fix scrolling by anchor, take account for fixed header */
 :target::before {
@@ -37,16 +37,16 @@ There is a fixed header above the page, it is implemented as a fixed element and
 
 ## Dark and light theme
 
-One of the features I decided to have was switching between the dark and light themes. Actually there are three possible values for the switch: light, dark, and auto. 
+One of the features I wanted to have was the ability to switch between dark and light themes. There are actually three possible values for the switch: light, dark, and auto.
 
-As for the specifying colors in the layout I went with the simplest possible way: tailwind already has the [dark mode](https://tailwindcss.com/docs/dark-mode) so it is possible to write something like this:
+To specify colors in the layout, I chose the simplest possible method: Tailwind CSS already has a [dark mode](https://tailwindcss.com/docs/dark-mode) so it's possible to write code like this:
 ```html
 <div class="bg-white text-black dark:bg-black dark:text-white"></div>
 ```
 
-The switching between the themes is done using javascript. I set the `data-theme` attribute of the root element and in css I have `@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));` as per tailwindcss docs. 
+Switching between the themes is done using JavaScript. I set the `data-theme` attribute of the root element and in my css I have `@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));` as shown in the Tailwind CSS docs. 
 
-This approach caused a small problem: when the page loads the `data-theme` attribute is set by javascript later then the page is shown, so if the dark mode is selected the page first loads with light theme and then switches to dark. I solved this with this css code, which is accompanied with the javascript code that removes the `no-js` class from the root element:
+This approach caused a small problem: when the page loads, the `data-theme` attribute is set by JavaScript after the page is shown. So, if dark mode is selected, the page first loads with the light theme and then switches to dark. I solved this with the following CSS code, which is accompanied by JavaScript code that removes the `no-js` class from the root element:
 ```css
 /* 
 prevent flickering when selecting dark mode after page load: do not show anything before theme is selected 
@@ -61,9 +61,9 @@ html:not(.no-js):not([data-theme]) body {
 
 There is an automatically generated table of contents for each blog post. 
 
-Astro provides [a list of headings](https://docs.astro.build/en/guides/markdown-content/#heading-ids) after parsing a Markdown document. It provides them as a plain list with a `depth` property which would 1 for `h1`, 2 for `h2` etc. I build a tree of headers from this and then render it as nested `<ul>` elements. It turned out that rendering a recursive structure in Astro is not very intuitive. I ended up creating a separate layout using [Astro.self](https://docs.astro.build/en/reference/astro-syntax/#astroself). And I had to google to find this solution.
+Astro provides a [list of headings](https://docs.astro.build/en/guides/markdown-content/#heading-ids) after parsing a Markdown document. It provides them as a plain list with a `depth` property, which is 1 for `h1`, 2 for `h2`, and so on. I build a tree of headers from this and then render it as nested `<ul>` elements. It turns out that rendering a recursive structure in Astro isn’t very intuitive. I ended up creating a separate layout that uses [Astro.self](https://docs.astro.build/en/reference/astro-syntax/#astroself), and I had to search online to find this solution.
 
-It would be very handy to be able to have a function that returns jsx, but this is not supported in Astro:
+It would be very handy to have a function that returns JSX, but this isn't supported in Astro:
 ```js
 // THIS WILL NOT WORK IN ASTRO
 // use Astro.self instead
@@ -85,4 +85,4 @@ function renderHeadings(headings: Heading[]) {
 
 ## Final words
 
-This was the first post on the blog. I really hope to find time to write the next one as I already have some ideas to share. 
+This was the first post on the blog. I really hope to find time to write the next one, as I already have some ideas to share.
