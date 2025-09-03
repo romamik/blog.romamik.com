@@ -1,6 +1,7 @@
 ---
 import { Icon } from "astro-icon/components";
 import "../styles/global.css";
+import avatar from "../img/avatar.jpg";
 const { title, disableToc } = Astro.props;
 ---
 
@@ -23,31 +24,121 @@ const { title, disableToc } = Astro.props;
   <body
     class="bg-gray-100 text-gray-900 dark:bg-gray-900 dark:text-gray-100 transition-colors duration-300 w-screen"
   >
-    <header
+    <nav
       class="top-0 fixed h-12 z-50 w-full bg-gray-50 dark:bg-gray-950 border=1 flex items-center"
     >
       <div class="w-full lg:w-240 mx-auto p-4 flex items-center gap-4">
-        <a href="/">Home</a>
-        <a href="/about">About</a>
+        <img
+          src={avatar.src}
+          alt="avatar"
+          class="h-8 rounded-full border-1 border-gray-600 dark:border-gray-400"
+        />
+        <ul class="font-medium flex p-0 flex-row border-0">
+          <li>
+            <a
+              href="/"
+              class="block py-2 px-3 hover:text-blue-700 p-0 dark:text-white dark:hover:text-blue-500"
+              >Home</a
+            >
+          </li>
+          <li>
+            <a
+              href="/about"
+              class="block py-2 px-3 hover:text-blue-700 p-0 dark:text-white dark:hover:text-blue-500"
+              >About</a
+            >
+          </li>
+        </ul>
         <span class="flex-1"></span>
-        <div class="theme-btn-container js-only">
-          <button id="theme-light" class="theme-btn"> Light </button>
-          <button id="theme-dark" class="theme-btn"> Dark </button>
-          <button id="theme-auto" class="theme-btn"> Auto </button>
+
+        <div id="theme-btn-group" class="js-only inline-flex" role="group">
+          <div class="inline-flex">
+            <input
+              type="radio"
+              id="theme-light"
+              type="button"
+              class="hidden peer"
+            />
+            <label
+              for="theme-light"
+              class="inline-flex items-center
+                px-1 py-0.5 text-sm font-medium text-gray-900
+                border border-gray-900 rounded-s-lg
+                hover:bg-gray-900 hover:text-white peer-checked:bg-gray-300
+                dark:border-white dark:text-white dark:hover:text-white dark:hover:bg-gray-700
+                 dark:peer-checked:bg-gray-700"
+            >
+              <Icon name="mdi:lightbulb-on-outline" size="1.4em" />
+              <span class="sr-only">Light</span></label
+            >
+          </div>
+
+          <div class="inline-flex">
+            <input
+              type="radio"
+              id="theme-dark"
+              type="button"
+              class="hidden peer"
+            />
+            <label
+              for="theme-dark"
+              class="inline-flex items-center
+                px-1 py-0.5 text-sm font-medium text-gray-900
+                border-t border-b border-gray-900
+                hover:bg-gray-900 hover:text-white peer-checked:bg-gray-300
+                dark:border-white dark:text-white dark:hover:text-white dark:hover:bg-gray-700
+                 dark:peer-checked:bg-gray-700"
+            >
+              <Icon name="mdi:lightbulb-on" size="1.4em" />
+              <span class="sr-only">Dark</span>
+            </label>
+          </div>
+
+          <div class="inline-flex">
+            <input
+              type="radio"
+              id="theme-auto"
+              type="button"
+              class="hidden peer"
+            />
+            <label
+              for="theme-auto"
+              class="inline-flex items-center
+                px-1 py-0.5 text-sm font-medium text-gray-900
+                border border-gray-900 rounded-e-lg
+                hover:bg-gray-900 hover:text-white peer-checked:bg-gray-300
+                dark:border-white dark:text-white dark:hover:text-white dark:hover:bg-gray-700
+                 dark:peer-checked:bg-gray-700"
+            >
+              <Icon name="mdi:lightbulb-auto-outline" size="1.4em" />
+              <span class="sr-only">Auto</span>
+            </label>
+          </div>
         </div>
-        <button id="toc-btn" class="md:hidden btn js-only">
-          <Icon name="mdi:table-of-contents" size="1.4em" />
-        </button>
+        {
+          !disableToc && (
+            <button
+              type="button"
+              id="toc-btn"
+              class="js-only md:hidden
+                px-1 py-0.5 text-sm font-medium text-gray-900
+                border border-gray-900 rounded-lg
+                hover:bg-gray-900 hover:text-white
+                dark:border-white dark:text-white dark:hover:text-white dark:hover:bg-gray-700"
+            >
+              <Icon name="mdi:table-of-contents" size="1.4em" />
+              <span class="sr-only">Table Of Contents</span>
+            </button>
+          )
+        }
       </div>
-    </header>
+    </nav>
     <div class="w-full lg:w-240 mx-auto flex">
       <main class="p-4 mt-12 mb-24 flex-1 prose dark:prose-invert max-w-none">
         <slot />
       </main>
       {
-        disableToc ? (
-          ""
-        ) : (
+        !disableToc && (
           <aside
             id="toc"
             class="mt-12 w-64 right-0 z-100 fixed md:relative md:right-auto self-start"

@@ -35,12 +35,12 @@ for (let theme of ["dark", "light", "auto"]) {
   btn?.addEventListener("click", () => {
     setTheme(theme);
     document
-      .querySelectorAll(".theme-btn")
-      .forEach((b) => b.classList.remove("active"));
-    btn.classList.add("active");
+      .querySelectorAll("#theme-btn-group input")
+      .forEach((b) => ((b as HTMLInputElement).checked = false));
+    (btn as HTMLInputElement).checked = true;
   });
 }
 
 let theme = localStorage.getItem("theme") ?? "auto";
 setTheme(theme);
-document.getElementById(`theme-${theme}`)?.classList.add("active");
+(document.getElementById(`theme-${theme}`) as HTMLInputElement).checked = true;

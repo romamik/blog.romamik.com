@@ -13,9 +13,9 @@ const { headings } = Astro.props as { headings: Heading[] };
     headings?.map((heading) => (
       <li>
         <a href={`#${heading.slug}`}>{heading.text}</a>
-        {heading.children && heading.children.length > 0 ? (
+        {heading.children && heading.children.length > 0 && (
           <Astro.self headings={heading.children} />
-        ) : null}
+        )}
       </li>
     ))
   }

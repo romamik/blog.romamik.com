@@ -12,10 +12,15 @@ const posts = await getPosts();
         <div class="p-4 border-b last:border-none">
           <div class="text-xs">
             {post.formattedDate}
-            {post.data.draft ? <b>draft</b> : ""}
+            {post.data.draft && <b>draft</b>}
           </div>
           <div class="text-xl pt-1 pb-3">
-            <a href={`/blog/${post.slug}/`}>{post.data.title}</a>
+            <a
+              href={`/blog/${post.slug}/`}
+              class="no-underline hover:text-blue-700 dark:text-white dark:hover:text-blue-500"
+            >
+              {post.data.title}
+            </a>
           </div>
           {post.data.description ? (
             <div class="text-sm">{post.data.description}</div>
