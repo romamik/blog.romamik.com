@@ -16,8 +16,16 @@ const { title, disableToc } = Astro.props;
     </script>
     <script src="../lib/theme.ts"></script>
     <script>
+      // toggle Table of Contents on button click
       document.getElementById("toc-btn")?.addEventListener("click", () => {
         document.getElementById("toc")?.classList.toggle("toc-open");
+      });
+      // hide Table of Contents on click on the link inside it
+      document.querySelectorAll("#toc a").forEach((link) => {
+        console.log(link);
+        link.addEventListener("click", () =>
+          document.getElementById("toc")?.classList.remove("toc-open")
+        );
       });
     </script>
   </head>
@@ -120,14 +128,14 @@ const { title, disableToc } = Astro.props;
             <button
               type="button"
               id="toc-btn"
-              class="js-only md:hidden
+              class="js-only lg:hidden
                 px-1 py-0.5 text-sm font-medium text-gray-900
                 border border-gray-900 rounded-lg
                 hover:bg-gray-900 hover:text-white
                 dark:border-white dark:text-white dark:hover:text-white dark:hover:bg-gray-700"
             >
               <Icon name="mdi:table-of-contents" size="1.4em" />
-              <span class="sr-only">Table Of Contents</span>
+              <span class="sr-only">Table of Contents</span>
             </button>
           )
         }
@@ -141,7 +149,7 @@ const { title, disableToc } = Astro.props;
         !disableToc && (
           <aside
             id="toc"
-            class="m-2 mt-14 w-64 right-0 z-100 fixed md:relative md:right-auto self-start"
+            class="m-2 mt-14 w-64 right-0 z-100 fixed lg:relative lg:right-auto self-start"
           >
             <div
               class="rounded-b-lg mr-10 w-64 fixed overflow-y-scroll block p-6 bg-white border border-gray-200 rounded-lg shadow-sm  
