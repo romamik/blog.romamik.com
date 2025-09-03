@@ -13,7 +13,7 @@ This website uses [Astro](https://astro.build). I use it as a static site genera
 Initially, I was planning to use a simple static site generator, like [Zola](https://www.getzola.org/). But there was one feature I really wanted: diff syntax highlighting, which means highlighting code changes without losing the highlighting of the language itself. Most of the tools I looked at did not support that. So, when I stumbled upon [Expressive Code](https://expressive-code.com/) which had this and many other features, I decided it was exactly what I needed. It turned out that the easiest way to use it was with Astro. 
 
 Here’s a small demo of a code block with a code diff:
-```diff language=rs
+```diff lang=rs
 fn main() {
 +     println!("Hello world!")
 -     println!()
