@@ -1,14 +1,14 @@
 ---
 import { Icon } from "astro-icon/components";
 import "../styles/global.css";
-import avatar from "../img/avatar.jpg";
 const { title, disableToc } = Astro.props;
 ---
 
 <html lang="en" class="no-js">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" href="/favicon-96x96.png" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{title}</title>
     <script is:inline>
@@ -35,9 +35,9 @@ const { title, disableToc } = Astro.props;
     <nav
       class="top-0 fixed h-12 z-50 w-full bg-gray-50 dark:bg-gray-950 border=1 flex items-center shadow-sm"
     >
-      <div class="w-full lg:w-240 mx-auto p-4 flex items-center gap-4">
+      <div class="w-full lg:w-240 mx-auto p-4 flex items-center">
         <img
-          src={avatar.src}
+          src="/favicon-96x96.png"
           alt="avatar"
           class="h-8 rounded-full border-1 border-gray-600 dark:border-gray-400"
         />
@@ -59,86 +59,88 @@ const { title, disableToc } = Astro.props;
         </ul>
         <span class="flex-1"></span>
 
-        <div id="theme-btn-group" class="js-only inline-flex" role="group">
-          <div class="inline-flex">
-            <input
-              type="radio"
-              id="theme-light"
-              type="button"
-              class="hidden peer"
-            />
-            <label
-              for="theme-light"
-              class="inline-flex items-center
+        <div class="inline-flex gap-2">
+          <div id="theme-btn-group" class="js-only inline-flex" role="group">
+            <div class="inline-flex">
+              <input
+                type="radio"
+                id="theme-light"
+                type="button"
+                class="hidden peer"
+              />
+              <label
+                for="theme-light"
+                class="inline-flex items-center
                 px-1 py-0.5 text-sm font-medium text-gray-900
                 border border-gray-900 rounded-s-lg
                 hover:bg-gray-900 hover:text-white peer-checked:bg-gray-300
                 dark:border-white dark:text-white dark:hover:text-white dark:hover:bg-gray-700
                  dark:peer-checked:bg-gray-700"
-            >
-              <Icon name="mdi:lightbulb-on-outline" size="1.4em" />
-              <span class="sr-only">Light</span></label
-            >
-          </div>
+              >
+                <Icon name="mdi:lightbulb-on-outline" size="1.4em" />
+                <span class="sr-only">Light</span></label
+              >
+            </div>
 
-          <div class="inline-flex">
-            <input
-              type="radio"
-              id="theme-dark"
-              type="button"
-              class="hidden peer"
-            />
-            <label
-              for="theme-dark"
-              class="inline-flex items-center
+            <div class="inline-flex">
+              <input
+                type="radio"
+                id="theme-dark"
+                type="button"
+                class="hidden peer"
+              />
+              <label
+                for="theme-dark"
+                class="inline-flex items-center
                 px-1 py-0.5 text-sm font-medium text-gray-900
                 border-t border-b border-gray-900
                 hover:bg-gray-900 hover:text-white peer-checked:bg-gray-300
                 dark:border-white dark:text-white dark:hover:text-white dark:hover:bg-gray-700
                  dark:peer-checked:bg-gray-700"
-            >
-              <Icon name="mdi:lightbulb-on" size="1.4em" />
-              <span class="sr-only">Dark</span>
-            </label>
-          </div>
+              >
+                <Icon name="mdi:lightbulb-on" size="1.4em" />
+                <span class="sr-only">Dark</span>
+              </label>
+            </div>
 
-          <div class="inline-flex">
-            <input
-              type="radio"
-              id="theme-auto"
-              type="button"
-              class="hidden peer"
-            />
-            <label
-              for="theme-auto"
-              class="inline-flex items-center
+            <div class="inline-flex">
+              <input
+                type="radio"
+                id="theme-auto"
+                type="button"
+                class="hidden peer"
+              />
+              <label
+                for="theme-auto"
+                class="inline-flex items-center
                 px-1 py-0.5 text-sm font-medium text-gray-900
                 border border-gray-900 rounded-e-lg
                 hover:bg-gray-900 hover:text-white peer-checked:bg-gray-300
                 dark:border-white dark:text-white dark:hover:text-white dark:hover:bg-gray-700
                  dark:peer-checked:bg-gray-700"
-            >
-              <Icon name="mdi:lightbulb-auto-outline" size="1.4em" />
-              <span class="sr-only">Auto</span>
-            </label>
+              >
+                <Icon name="mdi:lightbulb-auto-outline" size="1.4em" />
+                <span class="sr-only">Auto</span>
+              </label>
+            </div>
           </div>
-        </div>
-        {
-          !disableToc && (
-            <button
-              type="button"
-              id="toc-btn"
-              class="js-only lg:hidden
+          {
+            !disableToc && (
+              <button
+                type="button"
+                id="toc-btn"
+                class="js-only lg:hidden
                 px-1 py-0.5 text-sm font-medium text-gray-900
                 border border-gray-900 rounded-lg
                 hover:bg-gray-900 hover:text-white
                 dark:border-white dark:text-white dark:hover:text-white dark:hover:bg-gray-700"
-            >
-              <Icon name="mdi:table-of-contents" size="1.4em" />
-              <span class="sr-only">Table of Contents</span>
-            </button>
-          )
-        }
+              >
+                <Icon name="mdi:table-of-contents" size="1.4em" />
+                <span class="sr-only">Table of Contents</span>
+              </button>
+            )
+          }
+        </div>
       </div>
     </nav>
     <div class="w-full lg:w-240 mx-auto flex">
