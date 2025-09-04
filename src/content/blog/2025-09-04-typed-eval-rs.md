@@ -680,4 +680,6 @@ impl<Ctx: ExprContext> Compiler<Ctx> {
 
 We will also need to implement the remaining features, such as unary operators, in the same manner. However, I will not put this here, as the code is more or less obvious. It is still present in the repository anyway.
 
+Oh, and I forgot to say: I had to make `DynFn` clonable. It is totally possible to make it clonable using the same `clone_box` trick that is already used for `BoxedFn`, but for now I just slapped on `Rc<dyn Any>` instead of `Box<dyn Any>`. 
+
 Git tag for this stage: [blog-005](https://github.com/romamik/typed-eval-rs/tree/blog-005)
