@@ -19,6 +19,7 @@ export default defineConfig({
         wrap: true,
         preserveIndent: true,
         hangingIndent: 4,
+        showLineNumbers: false,
       },
       plugins: [pluginCollapsibleSections(), pluginLineNumbers()],
       themeCssSelector: (theme, context) => {
