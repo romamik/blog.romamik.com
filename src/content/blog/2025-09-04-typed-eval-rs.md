@@ -346,8 +346,8 @@ impl DynFn {
 
 #[test]
 fn test_dyn_fn() {
-    // here we construct a function that takes an (i32,i32) tuple 
-    // and returns the first part, but the type of the variable is 
+    // here we construct a function that takes an (i32,i32) tuple
+    // and returns the first part, but the type of the variable is
     // just DynFn, no mention of tuples and i32
     let dyn_fn = DynFn::new(|a: &(i32, i32)| a.0);
 
@@ -491,8 +491,8 @@ impl DynFn {
 
 #[test]
 fn test_dyn_fn() {
-    // here we construct a function that takes an (i32,i32) tuple 
-    // and returns the first part, but the type of the variable is 
+    // here we construct a function that takes an (i32,i32) tuple
+    // and returns the first part, but the type of the variable is
     // just DynFn, no mention of tuples and i32
     let dyn_fn = DynFn::new(|a: &(i32, i32)| a.0);
 
@@ -559,7 +559,7 @@ Something like this:
 
 ```rs
 type BinOpKey = (BinOp, TypeId);
-type CompileBinOpFunc = 
+type CompileBinOpFunc =
     Box<dyn Fn(DynFn, DynFn) -> Result<DynFn, String>>;
 
 pub struct Compiler<Ctx> {
@@ -575,19 +575,19 @@ impl<Ctx: ExprContext> Default for Compiler<Ctx> {
         };
 
         compiler.register_bin_op(
-            BinOp::Add, 
+            BinOp::Add,
             |lhs: f64, rhs: f64| lhs + rhs
         );
         compiler.register_bin_op(
-            BinOp::Sub, 
+            BinOp::Sub,
             |lhs: f64, rhs: f64| lhs - rhs
         );
         compiler.register_bin_op(
-            BinOp::Mul, 
+            BinOp::Mul,
             |lhs: f64, rhs: f64| lhs * rhs
         );
         compiler.register_bin_op(
-            BinOp::Div, 
+            BinOp::Div,
             |lhs: f64, rhs: f64| lhs / rhs
         );
 
@@ -597,8 +597,8 @@ impl<Ctx: ExprContext> Default for Compiler<Ctx> {
 
 impl<Ctx: ExprContext> Compiler<Ctx> {
     fn register_bin_op<T: 'static>(
-        &mut self, 
-        op: BinOp, 
+        &mut self,
+        op: BinOp,
         bin_op_fn: fn(T, T) -> T
     ) {
         let key = (op, TypeId::of::<T>());
@@ -667,19 +667,19 @@ impl<Ctx: ExprContext> Default for Compiler<Ctx> {
 
         // binary operators for integers
         compiler.register_bin_op(
-            BinOp::Add, 
+            BinOp::Add,
             |lhs: i64, rhs: i64| lhs + rhs
         );
         compiler.register_bin_op(
-            BinOp::Sub, 
+            BinOp::Sub,
             |lhs: i64, rhs: i64| lhs - rhs
         );
         compiler.register_bin_op(
-            BinOp::Mul, 
+            BinOp::Mul,
             |lhs: i64, rhs: i64| lhs * rhs
         );
         compiler.register_bin_op(
-            BinOp::Div, 
+            BinOp::Div,
             |lhs: i64, rhs: i64| lhs / rhs
         );
         ...
@@ -688,7 +688,7 @@ impl<Ctx: ExprContext> Default for Compiler<Ctx> {
 
 impl<Ctx: ExprContext> Compiler<Ctx> {
     fn register_cast<From: 'static, To: 'static>(
-        &mut self, 
+        &mut self,
         cast_fn: fn(From) -> To
     ) {
         let key = (TypeId::of::<From>(), TypeId::of::<To>());
@@ -705,7 +705,7 @@ impl<Ctx: ExprContext> Compiler<Ctx> {
     ...
     // helper function that tries to cast expression to given type
     fn cast(
-        &self, 
+        &self,
         expr: DynFn, ty: TypeId
     ) -> Result<DynFn, String> {
         if expr.ret_type == ty {
@@ -720,7 +720,7 @@ impl<Ctx: ExprContext> Compiler<Ctx> {
 
     // helper functions that tries to make two expressions the same type
     fn cast_same_type(
-        &self, a: DynFn, 
+        &self, a: DynFn,
         b: DynFn
     ) -> Result<(DynFn, DynFn), String> {
         if a.ret_type == b.ret_type {
@@ -737,7 +737,7 @@ impl<Ctx: ExprContext> Compiler<Ctx> {
     ...
     pub fn compile_expr(&self, expr: &Expr) -> Result<DynFn, String> {
         ...
-        // NOTE: return i64 val here now, so the resulting expression 
+        // NOTE: return i64 val here now, so the resulting expression
         // will be of i64 type
         &Expr::Int(val) => DynFn::new(move |_ctx: &Ctx| val),
         ...
@@ -748,7 +748,7 @@ impl<Ctx: ExprContext> Compiler<Ctx> {
             let (lhs, rhs) = self.cast_same_type(lhs, rhs)?;
 
             let Some(compile_bin_op) = {
-                self.binary_operations.get(&(*op, lhs.ret_type)) 
+                self.binary_operations.get(&(*op, lhs.ret_type))
             } else {
                 Err("Unsupported binary operation")?
             };
@@ -758,10 +758,10 @@ impl<Ctx: ExprContext> Compiler<Ctx> {
         ...
     }
     ...
-    // very convenient function that returns function 
+    // very convenient function that returns function
     // that we can call instead of DynFn
     pub fn compile<Ret: 'static>(
-        &self, 
+        &self,
         expr: &Expr
     ) -> Result<BoxedFn<Ctx, Ret>, String> {
         let dyn_fn = self.compile_expr(expr)?;
@@ -778,3 +778,185 @@ We will also need to implement the remaining features, such as unary operators, 
 Oh, and I forgot to say: I had to make `DynFn` clonable to implement `cast_same_type` function. I used the same `clone_box` trick we already used with `ClonableFn` trait.
 
 Git tag for this stage: [blog-005](https://github.com/romamik/typed-eval-rs/tree/blog-005)
+
+## Field access
+
+I would like to implement a field access feature now. So that our expressions can look like `"user.age * 0.5"`. But for this we need to have the expression `"user"` to work, which should return some sort of object. And here are the two reasons we cannot have it right now: our context, or local variables, still can only return `float` values, and there is no object type in the compiler.
+
+### Local variables
+
+Our expressions can have types now, but what about fields of the `Context`? They are still `float` only. Let's fix that.
+
+Our `ExprContext` trait looked like that:
+
+```rs
+pub trait ExprContext: 'static {
+    fn field_getter(field_name: &str) -> Option<fn(&Self) -> f64>;
+}
+```
+
+We now have `DynFn` type that can store a function that takes (a reference to) any argument and returns any result type. We can reuse it in the `Context` trait:
+
+```rs
+pub trait ExprContext: 'static {
+    // returns a function that takes Self as argument
+    fn field_getter(field_name: &str) -> Option<DynFn>;
+}
+```
+
+And now our compiler code for `Expr::Var` is really simple, we just return a DynFn returned from ExprContext:
+
+```rs
+    Expr::Var(var_name) => Ctx::field_getter(var_name)
+        .ok_or(format!("Unknown variable ${var_name}"))?,
+```
+
+In our test, we can now change a type of one of the fields and update the implementation of the ExprContext:
+
+```rs
+struct TestContext {
+    foo: i64,
+    bar: f64,
+}
+
+impl ExprContext for TestContext {
+    fn field_getter(field_name: &str) -> Option<DynFn> {
+        match field_name {
+            "foo" => Some(DynFn::new(|ctx: &TestContext| ctx.foo)),
+            "bar" => Some(DynFn::new(|ctx: &TestContext| ctx.bar)),
+            _ => None,
+        }
+    }
+}
+```
+
+And that is all what took us to have local variables of any type we want.
+
+It is still worth it to create a `Derive` macro for this, but I still plan to implement it later.
+
+### Object type
+
+It looks like we can just add a field of any type to our context and the compiler will just use it. The only limitation we have is that return type of our expressions should be `static`. So, we should be able to have the context defined like this:
+
+```rs
+struct Foo {}
+
+struct Context {
+    foo: Foo
+}
+
+impl ExprContext for Context {
+    fn field_getter(field_name: &str) -> Option<DynFn> {
+        match field_name {
+            "foo" => Some(DynFn::new(|ctx: &Context| ctx.foo)),
+            _ => None,
+        }
+    }
+}
+```
+
+This will not compile:
+
+```
+error[E0507]: cannot move out of `ctx.foo` which is behind a shared reference
+```
+
+If we try to return a reference to foo:
+
+```rs
+    "foo" => Some(DynFn::new(|ctx: &Context| &ctx.foo)),
+```
+
+The error is different, but it still does not compile:
+
+```
+error: lifetime may not live long enough
+```
+
+I think the reasons for both errors are obvious, but what can we do about it? The easiest thing to do would be to just clone `foo` and return it. I really do not think that it is a good solution though. Instead, let's use `Rc` for storing `Foo` in the context, and clone the `Rc`:
+
+```rs
+struct Context {
+    int: i64,
+    float: f64,
+    foo: Rc<Foo>,
+}
+
+impl ExprContext for Context {
+    fn field_getter(field_name: &str) -> Option<DynFn> {
+        match field_name {
+            "int" => Some(DynFn::new(|ctx: &Context| ctx.int.clone())),
+            "float" => Some(DynFn::new(|ctx: &Context| ctx.float.clone())),
+            "foo" => Some(DynFn::new(|ctx: &Context| ctx.foo.clone())),
+            _ => None,
+        }
+    }
+}
+```
+
+Note, that I added `clone()` to `int` and `float` fields too. There is no harm in this, but this way it mimics the way it will be generated by `Derive` macro, so we are sure that we will be able to implement it.
+
+I think I know the trick to get rid of this `Rc` and actually have the compiled function return the reference to `foo`, but we will get to it later. 
+
+### Field access
+
+Now we can have an expression that returns an object. So, when compiling an `Expr::FieldAccess` we will have a function that returns an `Rc<SomeType>` and a field name. But how the compiler knows how to extract the field from the instance of the type. I think we should register types with the compiler, so that it stores all needed information. Actually, we already have the `ExprContext` context trait, that we can register with compiler, as it does exactly what we need: allows to get a field from the object of the known type.
+
+Pseudocode:
+```
+register_type::<Type: ExprContext>() {
+    for each field register a getter function with the compiler
+}
+
+compile_field_access(object, field_name) {
+    by type_id of the object and field_name find the getter function and use it
+}
+```
+
+Looking at this, I can say that our trait lacks a way to enumerate fields. Also, `ExprContext` is now a bad name for this trait, as it is now not only for the evaluation context of the expression, but also for any other objects.
+
+What if our trait will look like this:
+```rs
+trait SupportedType {
+    fn register(compiler: &mut Compiler)
+}
+```
+
+This way, for objects we can not only register all the field getters with compiler, but also register types for all the field types. Also, simple types like i64 can register binary and unary operators as well as casts associated with them. This will allow to structure our code in a more modulare manner. Seems like a good way to do.
+
+For this we will need a mutable access to the compiler, and also to make `register_` function on the compiler public. This does not sound really good to me. So, I propose to have a CompilerRegistry type, and the final structure will look like this, that is still pseudocode:
+```rs
+struct Compiler<Ctx> {
+    registry: CompilerRegistry<Ctx>
+}
+
+impl<Ctx: SupportedType> Compiler<Ctx> {
+    fn new() {
+        let mut registry = CompilerRegistry::default()
+        Ctx::register(&mut registry)
+        
+        // all the types that can we have literals of
+        i64::register()
+        f64::register()
+
+        Self { registry }
+    }
+}
+
+impl SupportedType for SomeContext {
+    fn register(registry) {
+        // for every field:
+        registry.register_field_access("foo", |obj: Self| obj.foo)
+        
+        // for every field type:
+        FieldType::register(registry)
+    }
+}
+
+impl SupportedType for i64 {
+    fn register(registry) {
+        // register cast to f64
+        // register all binary and unary operations
+    }
+}
+```
