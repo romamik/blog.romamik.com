@@ -88,8 +88,12 @@ fn eval_expr(expr: &Expr) -> Result<f64, String> {
                 BinOp::Div => lhs / rhs,
             }
         }
-        Expr::FieldAccess(_object, _field_name) => Err("Field access not supported")?,
-        Expr::FuncCall(_function, _arguments) => Err("Function calls not supported")?,
+        Expr::FieldAccess(_object, _field_name) => {
+            Err("Field access not supported")?
+        }
+        Expr::FuncCall(_function, _arguments) => {
+            Err("Function calls not supported")?
+        }
     })
 }
 ```
@@ -152,8 +156,12 @@ Let's create a function that takes an AST and returns a closure.
 +                BinOp::Div => Box::new(move || lhs() / rhs()),
              }
          }
-        Expr::FieldAccess(_object, _field_name) => Err("Field access not supported")?,
-        Expr::FuncCall(_function, _arguments) => Err("Function calls not supported")?,
+        Expr::FieldAccess(_object, _field_name) => {
+            Err("Field access not supported")?
+        }
+        Expr::FuncCall(_function, _arguments) => {
+            Err("Function calls not supported")?
+        }
     })
 }
 ```
@@ -161,9 +169,9 @@ Let's create a function that takes an AST and returns a closure.
 Now to get the result of the expression we need to just call the returned closure:
 
 ```rs
-    let expr: &Expr = ...
-    let compiled_expr: CompiledExpr = compile_expr(expr)?;
-    let result: f64 = compiled_expr();
+let expr: &Expr = ...
+let compiled_expr: CompiledExpr = compile_expr(expr)?;
+let result: f64 = compiled_expr();
 ```
 
 Looking at the resulting code, I think it is pretty useless right now, as expressions always return the same result. But we will get to it very soon.
@@ -179,17 +187,19 @@ If we had a version that evaluates the AST we could have used `HashMap<String, f
 ```rs
 pub type CompiledExpr<Ctx> = Box<dyn Fn(&Ctx) -> f64>;
 
-pub fn compile_expr<Ctx: 'static>(expr: &Expr) -> Result<CompiledExpr<Ctx>, String> {
-        &Expr::Int(val) => Box::new(move |_ctx| val as f64),
+pub fn compile_expr<Ctx: 'static>(
+    expr: &Expr
+) -> Result<CompiledExpr<Ctx>, String> {
 ...
-        Expr::UnOp(op, rhs) => {
-            let rhs = compile_expr(rhs)?;
-            match op {
-                UnOp::Neg => Box::new(move |ctx| -rhs(ctx)),
-                UnOp::Plus => rhs,
-            }
+    &Expr::Int(val) => Box::new(move |_ctx| val as f64),
+...
+    Expr::UnOp(op, rhs) => {
+        let rhs = compile_expr(rhs)?;
+        match op {
+            UnOp::Neg => Box::new(move |ctx| -rhs(ctx)),
+            UnOp::Plus => rhs,
         }
-...
+    }
 ```
 
 ### Implementing variable access
@@ -203,13 +213,15 @@ pub trait ExprContext: 'static {
     fn field_getter(field_name: &str) -> Option<fn(&Self) -> f64>;
 }
 
-pub fn compile_expr<Ctx: ExprContext>(expr: &Expr) -> Result<CompiledExpr<Ctx>, String> {
+pub fn compile_expr<Ctx: ExprContext>(
+    expr: &Expr
+) -> Result<CompiledExpr<Ctx>, String> {
 ...
-        Expr::Var(var_name) => {
-            let field_getter =
-                Ctx::field_getter(var_name).ok_or(format!("Unknown variable ${var_name}"))?;
-            Box::new(field_getter)
-        }
+    Expr::Var(var_name) => {
+        let field_getter = Ctx::field_getter(var_name)
+            .ok_or(format!("Unknown variable ${var_name}"))?;
+        Box::new(field_getter)
+    }
 ```
 
 Here, `ExprContext::field_getter` function returns a function that can be used to access a given field of the context object. This may sound a bit confusing, but actually, the concept is really simple.
@@ -219,27 +231,33 @@ Here, `ExprContext::field_getter` function returns a function that can be used t
 Currently, to test our expression engine we can implement `ExprContext` by hand, but obviously, it would make a lot of sense to have a `Derive` macro to implement it for us.
 
 ```rs
-    struct TestContext {
-        foo: f64,
-        bar: f64,
-    }
+struct TestContext {
+    foo: f64,
+    bar: f64,
+}
 
-    impl ExprContext for TestContext {
-        fn field_getter(field_name: &str) -> Option<fn(&Self) -> f64> {
-            match field_name {
-                "foo" => Some(|ctx: &TestContext| ctx.foo),
-                "bar" => Some(|ctx: &TestContext| ctx.bar),
-                _ => None,
-            }
+impl ExprContext for TestContext {
+    fn field_getter(field_name: &str) -> Option<fn(&Self) -> f64> {
+        match field_name {
+            "foo" => Some(|ctx: &TestContext| ctx.foo),
+            "bar" => Some(|ctx: &TestContext| ctx.bar),
+            _ => None,
         }
     }
+}
 
-    #[test]
-    fn test_eval() {
-        let ctx = TestContext { foo: 1.0, bar: 2.5 };
-        assert_eq!(eval("(1 + 2) * 3", &ctx), Ok((1.0 + 2.0) * 3.0));
-        assert_eq!(eval("2 * (foo + bar)", &ctx), Ok(2.0 * (ctx.foo + ctx.bar)));
-    }
+#[test]
+fn test_eval() {
+    let ctx = TestContext { foo: 1.0, bar: 2.5 };
+    assert_eq!(
+        eval("(1 + 2) * 3", &ctx),
+        Ok((1.0 + 2.0) * 3.0)
+    );
+    assert_eq!(
+        eval("2 * (foo + bar)", &ctx),
+        Ok(2.0 * (ctx.foo + ctx.bar))
+    );
+}
 ```
 
 Git tag for this stage: [blog-004](https://github.com/romamik/typed-eval-rs/tree/blog-004)
@@ -263,7 +281,7 @@ We need a type that does not have the `Ret` type parameter, but holds informatio
 Pseudocode for what the `compile_expr` might want to do:
 
 ```
-lookup_function_that_performs_op(op: BinOp, lhs: Type, rhs: Type) {
+lookup_function(op: BinOp, lhs: Type, rhs: Type) {
     match (op, lhs, rhs) {
         ...
         case (BinOp::Add, Int, Int) => |lhs: DynFn, rhs: DynFn| {
@@ -281,7 +299,7 @@ fn compile_expr(expr: &Expr) -> DynFn {
         Expr::BinOp(op, lhs, rhs) => {
             let lhs = compile_expr(lhs)
             let rhs = compile_expr(rhs)
-            let op_fun = lookup_function_that_performs_op(op, lhs.type, rhs.type)
+            let op_fun = lookup_function(op, lhs.type, rhs.type)
             op_fun(lhs, rhs)
         }
     }
@@ -290,7 +308,7 @@ fn compile_expr(expr: &Expr) -> DynFn {
 
 Or in human words, the compiler knows how to add certain types, so when it encounters the addition operator, it finds out which types are the operands, and finds the right operation based on the types, and calls appropriate code. This code already knows which types the operands are and can downcast them statically.
 
-My first attempt at defining types for functions, on which the compiler can operate:
+First, we need a type-erased function type that we can downcast back to fully typed function. My first attempt at defining such types:
 
 ```rs
 // the function with a statically known type
@@ -328,15 +346,16 @@ impl DynFn {
 
 #[test]
 fn test_dyn_fn() {
-    // here we construct a function that takes an (i32,i32) tuple and returns the first part
-    // but the type of the variable just DynFn, no mention of tuples and i32
+    // here we construct a function that takes an (i32,i32) tuple 
+    // and returns the first part, but the type of the variable is 
+    // just DynFn, no mention of tuples and i32
     let dyn_fn = DynFn::new(|a: &(i32, i32)| a.0);
 
     // here we get back to the callable function with known types
     // but for that we need to know exact types at compile time
     let concrete_fn = dyn_fn.downcast::<(i32, i32), i32>().unwrap();
 
-    // and here we call the downcasted function to test if it really works as intended
+    // and here we call the downcasted function to test it
     assert_eq!((concrete_fn)(&(10, 20)), 10);
 }
 ```
@@ -406,7 +425,8 @@ error[E0521]: borrowed data escapes outside of method
 I think, there is no doubt that `Box<dyn ClonableFn<Arg, Ret>>` is `'static`. But due to `ClonableFn` trait extending an `Fn(&Arg)` trait there is some lifetime associated with the `&Arg` argument, and this lifetime prevents the Rust compiler from clearly understanding that `Box<dyn ClonableFn<Arg, Ret>>` is actually `'static`. Or at least, this is my understanding of what is going on here.
 
 The simplest solution for me was to just wrap the `Box` in a `struct` and adapt the code accordingly:
-```rs showLineNumbers collapse={5-10,12-16,24-30,41-50,53-58}
+
+```rs showLineNumbers=false collapse={5-10,12-16,24-30,41-52,55-60}
 // the function with a statically known type
 pub struct BoxedFn<Arg, Ret>(Box<dyn ClonableFn<Arg, Ret>>);
 
@@ -446,7 +466,9 @@ pub struct DynFn {
 }
 
 impl DynFn {
-    pub fn new<Arg, Ret>(f: impl Fn(&Arg) -> Ret + Clone + 'static) -> Self
+    pub fn new<Arg, Ret>(
+        f: impl Fn(&Arg) -> Ret + Clone + 'static
+    ) -> Self
     where
         Arg: 'static,
         Ret: 'static,
@@ -469,15 +491,16 @@ impl DynFn {
 
 #[test]
 fn test_dyn_fn() {
-    // here we construct a function that takes an (i32,i32) tuple and returns the first part
-    // but the type of the variable just DynFn, no mention of tuples and i32
+    // here we construct a function that takes an (i32,i32) tuple 
+    // and returns the first part, but the type of the variable is 
+    // just DynFn, no mention of tuples and i32
     let dyn_fn = DynFn::new(|a: &(i32, i32)| a.0);
 
     // here we get back to the callable function with known types
     // but for that we need to know exact types at compile time
     let concrete_fn = dyn_fn.downcast::<(i32, i32), i32>().unwrap();
 
-    // and here we call the downcasted function to test if it really works as intended
+    // and here we call the downcasted function to test it
     assert_eq!((concrete_fn)(&(10, 20)), 10);
 }
 ```
@@ -487,13 +510,18 @@ Now that we have types to hold the functions, we can think about how to use them
 ### Using dynamic functions
 
 Let's first adapt our existing code to using the new types. It will still only support `float64` but potentially we would be able to add more:
+
 ```rs
-pub fn compile_expr<Ctx: ExprContext>(expr: &Expr) -> Result<DynFn, String> {
+pub fn compile_expr<Ctx: ExprContext>(
+    expr: &Expr
+) -> Result<DynFn, String> {
 ...
     Expr::BinOp(op, lhs, rhs) => {
         let lhs = compile_expr::<Ctx>(lhs)?;
         let rhs = compile_expr::<Ctx>(rhs)?;
-        if lhs.ret_type == TypeId::of::<f64>() && rhs.ret_type == TypeId::of::<f64>() {
+        if lhs.ret_type == TypeId::of::<f64>()
+            && rhs.ret_type == TypeId::of::<f64>()
+        {
             let lhs = lhs
                 .downcast::<Ctx, f64>()
                 .ok_or("Compiler error: lhs type mismatch")?;
@@ -502,10 +530,18 @@ pub fn compile_expr<Ctx: ExprContext>(expr: &Expr) -> Result<DynFn, String> {
                 .ok_or("Compiler error: rhs type mismatch")?;
 
             match op {
-                BinOp::Add => DynFn::new(move |ctx| lhs(ctx) + rhs(ctx)),
-                BinOp::Sub => DynFn::new(move |ctx| lhs(ctx) - rhs(ctx)),
-                BinOp::Mul => DynFn::new(move |ctx| lhs(ctx) * rhs(ctx)),
-                BinOp::Div => DynFn::new(move |ctx| lhs(ctx) / rhs(ctx)),
+                BinOp::Add => {
+                    DynFn::new(move |ctx| lhs(ctx) + rhs(ctx))
+                }
+                BinOp::Sub => {
+                    DynFn::new(move |ctx| lhs(ctx) - rhs(ctx))
+                }
+                BinOp::Mul => {
+                    DynFn::new(move |ctx| lhs(ctx) * rhs(ctx))
+                }
+                BinOp::Div => {
+                    DynFn::new(move |ctx| lhs(ctx) / rhs(ctx))
+                }
             }
         } else {
             Err("Unsupported binary operation")?
@@ -520,9 +556,11 @@ In the code above, we check if the compiled expressions are of expected type and
 We definitely can add support for more types by just adding more `if` branches, but that would not be convenient in any way. My idea is to have the `Compiler`, that will actually hold the registry of the supported operations so that the `compile_expr` function can look up operations there and use them.
 
 Something like this:
+
 ```rs
 type BinOpKey = (BinOp, TypeId);
-type CompileBinOpFunc = Box<dyn Fn(DynFn, DynFn) -> Result<DynFn, String>>;
+type CompileBinOpFunc = 
+    Box<dyn Fn(DynFn, DynFn) -> Result<DynFn, String>>;
 
 pub struct Compiler<Ctx> {
     binary_operations: HashMap<BinOpKey, CompileBinOpFunc>,
@@ -536,33 +574,52 @@ impl<Ctx: ExprContext> Default for Compiler<Ctx> {
             ctx_type: PhantomData,
         };
 
-        compiler.register_bin_op(BinOp::Add, |lhs: f64, rhs: f64| lhs + rhs);
-        compiler.register_bin_op(BinOp::Sub, |lhs: f64, rhs: f64| lhs - rhs);
-        compiler.register_bin_op(BinOp::Mul, |lhs: f64, rhs: f64| lhs * rhs);
-        compiler.register_bin_op(BinOp::Div, |lhs: f64, rhs: f64| lhs / rhs);
+        compiler.register_bin_op(
+            BinOp::Add, 
+            |lhs: f64, rhs: f64| lhs + rhs
+        );
+        compiler.register_bin_op(
+            BinOp::Sub, 
+            |lhs: f64, rhs: f64| lhs - rhs
+        );
+        compiler.register_bin_op(
+            BinOp::Mul, 
+            |lhs: f64, rhs: f64| lhs * rhs
+        );
+        compiler.register_bin_op(
+            BinOp::Div, 
+            |lhs: f64, rhs: f64| lhs / rhs
+        );
 
         compiler
     }
 }
 
 impl<Ctx: ExprContext> Compiler<Ctx> {
-    fn register_bin_op<T: 'static>(&mut self, op: BinOp, bin_op_fn: fn(T, T) -> T) {
+    fn register_bin_op<T: 'static>(
+        &mut self, 
+        op: BinOp, 
+        bin_op_fn: fn(T, T) -> T
+    ) {
         let key = (op, TypeId::of::<T>());
-        let compile_func = Box::new(move |lhs: DynFn, rhs: DynFn| -> Result<DynFn, String> {
-            let lhs = lhs
-                .downcast::<Ctx, T>()
-                .ok_or("Compiler error: lhs type mistmatch")?;
-            let rhs = rhs
-                .downcast::<Ctx, T>()
-                .ok_or("Compiler error: rhs type mistmatch")?;
-            Ok(DynFn::new(move |ctx| bin_op_fn(lhs(ctx), rhs(ctx))))
-        });
+        let compile_func = Box::new(
+            move |lhs: DynFn, rhs: DynFn| -> Result<DynFn, String> {
+                let lhs = lhs
+                    .downcast::<Ctx, T>()
+                    .ok_or("Compiler error: lhs type mistmatch")?;
+                let rhs = rhs
+                    .downcast::<Ctx, T>()
+                    .ok_or("Compiler error: rhs type mistmatch")?;
+                Ok(DynFn::new(move |ctx| bin_op_fn(lhs(ctx), rhs(ctx))))
+            },
+        );
         self.binary_operations.insert(key, compile_func);
     }
 }
 ```
 
 With this in place, we can make `compile_expr` also a method of the `Compiler` and use the registry for binary operations:
+
 ```rs
 pub fn compile_expr(&self, expr: &Expr) -> Result<DynFn, String> {
     ..
@@ -570,10 +627,14 @@ pub fn compile_expr(&self, expr: &Expr) -> Result<DynFn, String> {
         let lhs = self.compile_expr(lhs)?;
         let rhs = self.compile_expr(rhs)?;
         if lhs.ret_type != rhs.ret_type {
-            Err("Different types of operands are not supported for binary operators")?
+            Err(
+                "Different types of operands are not supported for binary operators",
+            )?
         }
 
-        let Some(compile_bin_op) = self.binary_operations.get(&(*op, lhs.ret_type)) else {
+        let Some(compile_bin_op) =
+            self.binary_operations.get(&(*op, lhs.ret_type))
+        else {
             Err("Unsupported binary operation")?
         };
 
@@ -588,7 +649,8 @@ I decided that binary operations will only take arguments of the same type. I th
 For binary operators, if the arguments have different type, we can try to cast either of operands to the type of the other operand. This seems to work fine: let's say we have a cast from `int` to `float`, then `int + float` would be interpreted as `cast(int) + float`.
 
 Let's implement this:
-```rs
+
+```rs showLineNumbers=false collapse={20-31}
 type CastKey = (TypeId, TypeId);
 type CompileCastFunc = Box<dyn Fn(DynFn) -> Result<DynFn, String>>;
 
@@ -604,28 +666,48 @@ impl<Ctx: ExprContext> Default for Compiler<Ctx> {
         compiler.register_cast(|value: i64| value as f64);
 
         // binary operators for integers
-        compiler.register_bin_op(BinOp::Add, |lhs: i64, rhs: i64| lhs + rhs);
-        compiler.register_bin_op(BinOp::Sub, |lhs: i64, rhs: i64| lhs - rhs);
-        compiler.register_bin_op(BinOp::Mul, |lhs: i64, rhs: i64| lhs * rhs);
-        compiler.register_bin_op(BinOp::Div, |lhs: i64, rhs: i64| lhs / rhs);
+        compiler.register_bin_op(
+            BinOp::Add, 
+            |lhs: i64, rhs: i64| lhs + rhs
+        );
+        compiler.register_bin_op(
+            BinOp::Sub, 
+            |lhs: i64, rhs: i64| lhs - rhs
+        );
+        compiler.register_bin_op(
+            BinOp::Mul, 
+            |lhs: i64, rhs: i64| lhs * rhs
+        );
+        compiler.register_bin_op(
+            BinOp::Div, 
+            |lhs: i64, rhs: i64| lhs / rhs
+        );
         ...
     }
 }
 
 impl<Ctx: ExprContext> Compiler<Ctx> {
-    fn register_cast<From: 'static, To: 'static>(&mut self, cast_fn: fn(From) -> To) {
+    fn register_cast<From: 'static, To: 'static>(
+        &mut self, 
+        cast_fn: fn(From) -> To
+    ) {
         let key = (TypeId::of::<From>(), TypeId::of::<To>());
-        let compile_func = Box::new(move |from: DynFn| -> Result<DynFn, String> {
-            let from = from
-                .downcast::<Ctx, From>()
-                .ok_or("Compiler error: from type mistmatch")?;
-            Ok(DynFn::new(move |ctx| cast_fn(from(ctx))))
-        });
+        let compile_func = Box::new(
+            move |from: DynFn| -> Result<DynFn, String> {
+                let from = from
+                    .downcast::<Ctx, From>()
+                    .ok_or("Compiler error: from type mistmatch")?;
+                Ok(DynFn::new(move |ctx| cast_fn(from(ctx))))
+            }
+        );
         self.casts.insert(key, compile_func);
     }
     ...
     // helper function that tries to cast expression to given type
-    fn cast(&self, expr: DynFn, ty: TypeId) -> Result<DynFn, String> {
+    fn cast(
+        &self, 
+        expr: DynFn, ty: TypeId
+    ) -> Result<DynFn, String> {
         if expr.ret_type == ty {
             return Ok(expr);
         }
@@ -637,7 +719,10 @@ impl<Ctx: ExprContext> Compiler<Ctx> {
     }
 
     // helper functions that tries to make two expressions the same type
-    fn cast_same_type(&self, a: DynFn, b: DynFn) -> Result<(DynFn, DynFn), String> {
+    fn cast_same_type(
+        &self, a: DynFn, 
+        b: DynFn
+    ) -> Result<(DynFn, DynFn), String> {
         if a.ret_type == b.ret_type {
             return Ok((a, b));
         }
@@ -652,13 +737,19 @@ impl<Ctx: ExprContext> Compiler<Ctx> {
     ...
     pub fn compile_expr(&self, expr: &Expr) -> Result<DynFn, String> {
         ...
+        // NOTE: return i64 val here now, so the resulting expression 
+        // will be of i64 type
+        &Expr::Int(val) => DynFn::new(move |_ctx: &Ctx| val),
+        ...
         Expr::BinOp(op, lhs, rhs) => {
             let lhs = self.compile_expr(lhs)?;
             let rhs = self.compile_expr(rhs)?;
 
             let (lhs, rhs) = self.cast_same_type(lhs, rhs)?;
 
-            let Some(compile_bin_op) = self.binary_operations.get(&(*op, lhs.ret_type)) else {
+            let Some(compile_bin_op) = {
+                self.binary_operations.get(&(*op, lhs.ret_type)) 
+            } else {
                 Err("Unsupported binary operation")?
             };
 
@@ -667,8 +758,12 @@ impl<Ctx: ExprContext> Compiler<Ctx> {
         ...
     }
     ...
-    // very convenient function that returns function that we can call instead of DynFn
-    pub fn compile<Ret: 'static>(&self, expr: &Expr) -> Result<BoxedFn<Ctx, Ret>, String> {
+    // very convenient function that returns function 
+    // that we can call instead of DynFn
+    pub fn compile<Ret: 'static>(
+        &self, 
+        expr: &Expr
+    ) -> Result<BoxedFn<Ctx, Ret>, String> {
         let dyn_fn = self.compile_expr(expr)?;
         let casted_dyn_fn = self.cast(dyn_fn, TypeId::of::<Ret>())?;
         casted_dyn_fn
@@ -680,6 +775,6 @@ impl<Ctx: ExprContext> Compiler<Ctx> {
 
 We will also need to implement the remaining features, such as unary operators, in the same manner. However, I will not put this here, as the code is more or less obvious. It is still present in the repository anyway.
 
-Oh, and I forgot to say: I had to make `DynFn` clonable. It is totally possible to make it clonable using the same `clone_box` trick that is already used for `BoxedFn`, but for now I just slapped on `Rc<dyn Any>` instead of `Box<dyn Any>`. 
+Oh, and I forgot to say: I had to make `DynFn` clonable to implement `cast_same_type` function. I used the same `clone_box` trick we already used with `ClonableFn` trait.
 
 Git tag for this stage: [blog-005](https://github.com/romamik/typed-eval-rs/tree/blog-005)
