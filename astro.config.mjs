@@ -16,7 +16,6 @@ export default defineConfig({
     expressiveCode({
       useDarkModeMediaQuery: true,
       defaultProps: {
-        wrap: true,
         preserveIndent: true,
         hangingIndent: 4,
         showLineNumbers: false,
