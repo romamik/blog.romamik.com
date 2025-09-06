@@ -32,7 +32,7 @@ html.no-js .js-only {
 table of contents: 
   hidden by default
   shown when there is class toc-open
-  shown when screen is wider than breakpoint-lg == 64rem, same as "md:" class
+  shown when screen is wider than breakpoint-lg == 64rem, same as "lg:" class
 */
 #toc {
   display: none;
