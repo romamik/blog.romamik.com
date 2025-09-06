@@ -22,7 +22,6 @@ const { title, disableToc } = Astro.props;
       });
       // hide Table of Contents on click on the link inside it
       document.querySelectorAll("#toc a").forEach((link) => {
-        console.log(link);
         link.addEventListener("click", () =>
           document.getElementById("toc")?.classList.remove("toc-open")
         );
