@@ -37,7 +37,7 @@ There is a fixed header at the top of the page, implemented as an element with `
 }
 ```
 
-## Dark and light theme
+## Dark and light themes
 
 One of the features I wanted to have was the ability to switch between dark and light themes. There are actually three possible values for the switch: light, dark, and auto.
 
@@ -48,8 +48,6 @@ To specify colors in the layout, I chose the simplest possible method: Tailwind 
 ```
 
 Switching between the themes is done using JavaScript. I set the `data-theme` attribute of the root element and in my CSS, I have `@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));` as shown in the Tailwind CSS docs.
-
-hello wo
 
 This approach caused a small problem: when the page loads, the `data-theme` attribute is set by JavaScript after the page has been shown. So, if dark mode is selected, the page first loads with the light theme and then switches to dark. I solved this with the following CSS code, which is accompanied by JavaScript code that removes the `no-js` class from the root element:
 
@@ -62,6 +60,12 @@ html:not(.no-js):not([data-theme]) body {
   display: none;
 }
 ```
+
+### Dark and light themes with Expressive Code
+
+By default, Expressive Code supports switching between dark and light themes, but does this automatcally depending on user preferences. I obviousy wanted it to switch with the rest of the site. Hopefully, they provide a way to support theme switching, this can be done by setting the `useDarkModeMediaQuery` setting to `false`, and providing a `themeCssSelector` callback function, that works in a way that I did not expect, even though it works in a quite logical way.
+
+When I was thinking about configuring Expressive Code to switch themes depending on the site setting, I was thinking in terms of directly setting the theme when it is needed, something like: if the theme is dark, please use the code theme `github-dark`. But actually the `themeCssSelector` callback works the other way around: for each Expressive Code theme it provides a css selector, that will be used to activate it. It is called at the build time, and is used to generate a CSS for the code blocks.
 
 ## Table of Contents
 
