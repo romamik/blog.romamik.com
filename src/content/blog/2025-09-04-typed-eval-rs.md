@@ -1128,8 +1128,60 @@ assert_eq!(eval("0.5 * user.age", &ctx), Ok(0.5 * ctx.user.age as f64));
 
 ### Preventing registering the type multiple times
 
-It is supposed that `SupportedType` implementations will be made by derive macro. The idea is that for each field of the struct it will call the field type's `register` function. This can lead to multiple calls of `register` for the same type. For this compiler can have a hash set of the already registered types.
+It is supposed that `SupportedType` implementations will be made by derive macro. The idea is that for each field of the struct it will call the field type's `register` function. This can lead to multiple calls of `register` for the same type. For this compiler can have a hash set of the already registered types. This is pretty straightforward to implement, and I spare you the reading of the source code for this. There was one thing I want to show here though:
 
-Another thing is that `register_` functions in the `CompilerRegistry` happily override entries registered by other types. This can lead to confusing errors later. It is better to detect such situations and produce an error if there is an attempt to register the same operation.
+```rs
+pub fn register_type<T: SupportedType>(&mut self) {
+    let type_id = TypeId::of::<T>();
+    if self.registered_types.contains(&type_id) {
+        return;
+    }
+    self.registered_types.insert(type_id);
+    T::register(RegistryAccess {
+        registry: self,
+        ty: PhantomData,
+    });
+}
+```
+As you can see, `SupportedType::register` function accepts some `RegistryAccess` type instead of the `&mut CompilerRegistry`. That is needed to prevent errorneously calling `SomeType::register()` instead of `Registry::register_type::<SomeType>()`. 
 
-Let's fix that.
+Another thing is that `register_` functions in the `CompilerRegistry` happily override entries registered by other types. This can lead to confusing errors later. It is better to detect such situations and produce an error if there is an attempt to register the same operation. The code for this is also trivial, but it has changed the `SupportedType` again, so that it can return an error now. Here is an implementation of SupportedType from the test:
+
+```rs
+struct TestContext {
+    foo: i64,
+    bar: f64,
+    user: Rc<User>,
+}
+
+impl SupportedType for Rc<TestContext> {
+    fn register<Ctx: SupportedType>(
+        mut registry: RegistryAccess<Ctx, Self>,
+    ) -> Result<(), String> {
+        registry
+            .register_field_access("foo", |ctx: &Rc<TestContext>| {
+                ctx.foo.clone()
+            })?;
+        registry
+            .register_field_access("bar", |ctx: &Rc<TestContext>| {
+                ctx.bar.clone()
+            })?;
+        registry
+            .register_field_access("user", |ctx: &Rc<TestContext>| {
+                ctx.user.clone()
+            })?;
+
+        registry.register_type::<i64>()?;
+        registry.register_type::<f64>()?;
+        registry.register_type::<Rc<User>>()?;
+
+        Ok(())
+    }
+}
+```
+
+Now, we have a functional expression evaluation engine. It can access local variables and fields on the objects. Also it is extensible as we can add new types, casts between them, etc.
+
+The only unsupported feature in the compiler, that is already in the Parser and in the AST is function calls. The other thing is that we are forced to only use clonable values, which seems rather limiting.
+
+Git tag for this stage: [blog-006](https://github.com/romamik/typed-eval-rs/tree/blog-006)
