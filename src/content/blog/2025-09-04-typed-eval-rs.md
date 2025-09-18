@@ -11,11 +11,21 @@ TODO!
 
 ## Project setup
 
-I will not go into details of setting up a new project in Rust. For this project, I created a multi-crate workspace with one lib crate called `typed-eval`. Later, we will add one more crate for macros. All the code is in this GitHub repository: [typed-eval-rs](https://github.com/romamik/typed-eval-rs). Also, I will create tags and link them in the text to show the intermediate stages in full.
+Before we dive into the implementation, let’s briefly talk about the project setup.
+This project uses a multi-crate Rust workspace with a single library crate called typed-eval.
+Later on, we’ll add another crate for macros to support code generation.
+
+The complete source code is available on GitHub: [typed-eval-rs](https://github.com/romamik/typed-eval-rs).
 
 ## Parser and AST
 
-For this blog, we'll skip the parser part and assume we already have a working one. The parser's job is to take a string like `"(1 + 2) * 3"` and turn it into Abstract Syntax Tree (AST). Here are the Rust types that represents the AST for our project:
+In this project, we need to represent and evaluate expressions like:
+
+```
+(1 + 2) * foo.bar(3)
+```
+
+First, we define an Abstract Syntax Tree (AST) that captures numbers, strings, variables, operations, field accesses, and function calls.
 
 ```rs
 #[derive(Debug, Clone, PartialEq)]
@@ -45,18 +55,25 @@ pub enum UnOp {
 }
 ```
 
-The parser is implemented using the [Chumsky](https://github.com/zesterer/chumsky) crate which I highly recommend.
+We are using the [Chumsky](https://github.com/zesterer/chumsky) crate to implement the parser. For example:
 
-The parser code in the described state here can be found on [GitHub](https://github.com/romamik/typed-eval-rs/blob/803b8d7894c8b0dd136cd852f1b68f716fdf3a6d/crates/typed-eval/src/expr_parser.rs).
+```rs
+use typed_eval::parse_expr;
 
-The parser module exports the `parse_expr` function. Calling `parse_expr("(1 + 2) / 3")` should return:
+let ast = parse_expr("(1 + 2) / 3").unwrap();
+println!("{ast:?}");
+```
+
+Produces:
 
 ```
-BinOp(Mul,
-    BinOp(Add, Int(1), Int(2)),
-    Int(3)
+BinOp(Div,
+    Box::new(BinOp(Add, Int(1), Int(2))),
+    Box::new(Int(3))
 )
 ```
+
+If you’re curious, the full parser implementation is available in the repository.
 
 Git tag for this stage: [blog-001](https://github.com/romamik/typed-eval-rs/tree/blog-001)
 
@@ -119,41 +136,30 @@ Interpreting an AST as shown above works, but for larger expressions, it can be 
 
 Let's create a function that takes an AST and returns a closure.
 
-```diff lang=rs
-+pub type CompiledExpr = Box<dyn Fn() -> f64>;
+```rs
+pub type CompiledExpr = Box<dyn Fn() -> f64>;
 
--pub fn eval_expr(expr: &Expr) -> Result<f64, String> {
-+pub fn compile_expr(expr: &Expr) -> Result<CompiledExpr, String> {
+pub fn compile_expr(expr: &Expr) -> Result<CompiledExpr, String> {
      Ok(match expr {
--        Expr::Int(val) => *val as f64,
-+        &Expr::Int(val) => Box::new(move || val as f64),
--        Expr::Float(val) => *val,
-+        &Expr::Float(val) => Box::new(move || val),
+        &Expr::Int(val) => Box::new(move || val as f64),
+        &Expr::Float(val) => Box::new(move || val),
          Expr::String(_string) => Err("Strings not supported")?,
          Expr::Var(_var_name) => Err("Variables not supported")?,
          Expr::UnOp(op, rhs) => {
--            let rhs = eval_expr(rhs)?;
-+            let rhs = compile_expr(rhs)?;
+            let rhs = compile_expr(rhs)?;
              match op {
--                UnOp::Neg => -rhs,
-+                UnOp::Neg => Box::new(move || -rhs()),
-                 UnOp::Plus => rhs,
+                UnOp::Neg => Box::new(move || -rhs()),
+                UnOp::Plus => rhs,
              }
          }
          Expr::BinOp(op, lhs, rhs) => {
--            let lhs = eval_expr(lhs)?;
--            let rhs = eval_expr(rhs)?;
-+            let lhs = compile_expr(lhs)?;
-+            let rhs = compile_expr(rhs)?;
-             match op {
--                BinOp::Add => lhs + rhs,
--                BinOp::Sub => lhs - rhs,
--                BinOp::Mul => lhs * rhs,
--                BinOp::Div => lhs / rhs,
-+                BinOp::Add => Box::new(move || lhs() + rhs()),
-+                BinOp::Sub => Box::new(move || lhs() - rhs()),
-+                BinOp::Mul => Box::new(move || lhs() * rhs()),
-+                BinOp::Div => Box::new(move || lhs() / rhs()),
+            let lhs = compile_expr(lhs)?;
+            let rhs = compile_expr(rhs)?;
+            match op {
+                BinOp::Add => Box::new(move || lhs() + rhs()),
+                BinOp::Sub => Box::new(move || lhs() - rhs()),
+                BinOp::Mul => Box::new(move || lhs() * rhs()),
+                BinOp::Div => Box::new(move || lhs() / rhs()),
              }
          }
         Expr::FieldAccess(_object, _field_name) => {
@@ -182,7 +188,7 @@ Git tag for this stage: [blog-003](https://github.com/romamik/typed-eval-rs/tree
 
 Let's make our closures accept a parameter whose fields will serve as variables that are accessible to expressions.
 
-If we had a version that evaluates the AST we could have used `HashMap<String, f64>` for this and just return an error if the variable was not present. But now we have closures that should not fail, so let's have a type parameter both for our `compile_expr` function and for the returned closures.
+For the first version that interpreted the AST it would be logical to use `HashMap<String, f64>` as a context for the expression. But since we have the `compile_expr` function that returns a closure, and we do not expect the returned closure to fail, it is better to have a type parameter, so that we know the type of the context at compile type. Let's just add a parameter to the the returned closure, and also a type parameter so that we know it's type:
 
 ```rs
 pub type CompiledExpr<Ctx> = Box<dyn Fn(&Ctx) -> f64>;
@@ -202,17 +208,18 @@ pub fn compile_expr<Ctx: 'static>(
     }
 ```
 
-### Implementing variable access
+### ExprContext trait
 
-And with this we should be able to implement `Expr::Var` branch in our code that previously returned an error. But how can we access fields of the context object?
-
-For this, we can create a trait that our `Context` should implement:
+How can we access fields of the context object? For this, we can create a trait that our `Context` should implement:
 
 ```rs
 pub trait ExprContext: 'static {
     fn field_getter(field_name: &str) -> Option<fn(&Self) -> f64>;
 }
+```
 
+The `field_getter` function does not return the field value, instead it returns a function that can be used to get the field value. This way we can use it to implement the `Expr::Var` support:
+```rs
 pub fn compile_expr<Ctx: ExprContext>(
     expr: &Expr
 ) -> Result<CompiledExpr<Ctx>, String> {
@@ -224,11 +231,12 @@ pub fn compile_expr<Ctx: ExprContext>(
     }
 ```
 
-Here, `ExprContext::field_getter` function returns a function that can be used to access a given field of the context object. This may sound a bit confusing, but actually, the concept is really simple.
+As you can see, again all the hard work is being done during the compilation stage and at runtime we only call the provided function.
+
 
 ### Implementing ExprContext
 
-Currently, to test our expression engine we can implement `ExprContext` by hand, but obviously, it would make a lot of sense to have a `Derive` macro to implement it for us.
+To test our expression engine we need implement `ExprContext`. We will do by hand now, but obviously, it would make a lot of sense to have a `Derive` macro to implement it for us.
 
 ```rs
 struct TestContext {
@@ -264,51 +272,57 @@ Git tag for this stage: [blog-004](https://github.com/romamik/typed-eval-rs/tree
 
 ## More types
 
-The evaluation engine is more usable now, when it can access variables, but it cannot work with types other than `float64`, which can be quite limiting. For example, we may want to calculate a string dynamically. Also, it would be cool to implement field access, to compile expressions like `"user.age * 2"`. However, for that we would also need support for different types, because sub expression `"user"` will return a `User` object and not a `float64`.
+The evaluation engine is more usable now, when it can access variables, but it cannot work with types other than `f64`, which can be quite limiting. For example, we may want to calculate a string dynamically. Also, it would be cool to implement field access, to compile expressions like `"user.age * 2"`. However, for that we would also need support for different types, because sub expression `"user"` will return a `User` object and not an `f64`.
 
-We can change our `CompiledExpr` type like this:
+We could have changed our `CompiledExpr` type like this:
 
 ```rs
 pub type CompiledExpr<Ctx, Ret> = Box<dyn Fn(&Ctx) -> Ret>;
 ```
 
-But we can't just adapt the `compile_expr` function to this new definition, because we don't know the return type of the expression: `"100"` will return `i64` and `"\"Hello world\""` will return `String`. That means that we need some common return type that will hold the compiled expression.
+But it would be impossible to adapt the `compile_expr` function to this new definition, because we don't know the return type of the expression: `"100"` will return `i64` and `"\"Hello world\""` will return `String`. That means that we need some common return type that will hold the compiled expression.
 
-### Dynamic functions
-
-We need a type that does not have the `Ret` type parameter, but holds information about the return type so that the compiler can use it.
+### Type-erased functions
 
 Pseudocode for what the `compile_expr` might want to do:
 
 ```
-lookup_function(op: BinOp, lhs: Type, rhs: Type) {
-    match (op, lhs, rhs) {
-        ...
-        case (BinOp::Add, Int, Int) => |lhs: DynFn, rhs: DynFn| {
-            let lhs: Fn(Ctx)->Int = lhs.downcast<Int>()
-            let rhs: Fn(Ctx)->Int = rhs.downcast<Int>()
-            DynFn::new(|ctx| lhs() + rhs())
-        }
-        ...
-    }
-}
-
 fn compile_expr(expr: &Expr) -> DynFn {
     match expr {
-        Expr::Int(val) => make_function_returning_int(|ctx| val)
+        ...
         Expr::BinOp(op, lhs, rhs) => {
-            let lhs = compile_expr(lhs)
-            let rhs = compile_expr(rhs)
-            let op_fun = lookup_function(op, lhs.type, rhs.type)
-            op_fun(lhs, rhs)
+            let lhs: DynFn = compile_expr(lhs)
+            let rhs: DynFn = compile_expr(rhs)
+            match (op, lhs.ret_type, rhs.ret_type) {
+                ...
+                case (BinOp::Add, Int, Int) => {
+                    let lhs: Fn(Ctx)->Int = lhs.downcast<Int>()
+                    let rhs: Fn(Ctx)->Int = rhs.downcast<Int>()
+                    DynFn::new(|ctx| lhs() + rhs())
+                }
+                ...
+                _ => return Err()
+            }
         }
+        ...
     }
 }
 ```
 
-Or in human words, the compiler knows how to add certain types, so when it encounters the addition operator, it finds out which types are the operands, and finds the right operation based on the types, and calls appropriate code. This code already knows which types the operands are and can downcast them statically.
+When compiler encounters a binary operation (like `+`) it needs to figure out what code to generate based on types of the operands. 
+* First, it compiles left-hand side (LHS) and right-hand side (RHS) expresssions into type-erased functions.
+* Then, it matches operator and the operand types. 
+* If it finds a valid combinations (e.g., 'Int + Int'), it downcasts the type-erased functions back into their concrete types.
+  * It then creates a new function that calls these operands and performs the desired operation.checks the types of the operands. 
+  * If there is no matching implementation it returns an error.
 
-First, we need a type-erased function type that we can downcast back to fully typed function. My first attempt at defining such types:
+To make this work, we need a type-erased function type, let's call it `DynFn`. This type must:
+* Hide the concrete return type of the function, so that we can work with functions of different types uniformely.
+* Allow us to create a type-erased function from a regular, strongly-typed function.
+* Allow us to downcast from type-erased function back to strongly-typed function.
+* Store type information (e.g., `TypeId`) so the compiler can check operand compatibility.
+
+Here is my attempt at defining such types:
 
 ```rs
 // the function with a statically known type
@@ -360,9 +374,9 @@ fn test_dyn_fn() {
 }
 ```
 
-This works, but there is one aspect missing. When the compiler constructs a new closure by combining any previous ones, all previous closures are moved into that new closure, and the compiler has some closures stored and reused during compilation, like for example a function that adds two integers. Because of this, we need to be able to clone our functions.
+This works, but there is one aspect missing. We need to own the function that is returned from the `downcast` function. We can implement `downcast` so that it concumes the `DynFn`. But would be much more convenient if we just return a clone of the stored concrete functions.
 
-For this, I introduce a new trait:
+For this, we introduce a new trait:
 
 ```rs
 pub trait ClonableFn<Arg, Ret>: Fn(&Arg) -> Ret {
@@ -385,9 +399,8 @@ where
 
 After this, we have to change the `BoxedFn` definition:
 
-```diff lang=rs
--   pub type BoxedFn<Arg, Ret> = Box<dyn Fn(&Arg) -> Ret>;
-+   pub type BoxedFn<Arg, Ret> = Box<dyn ClonableFn<Arg, Ret>>;
+```rs
+pub type BoxedFn<Arg, Ret> = Box<dyn ClonableFn<Arg, Ret>>;
 ```
 
 Finally we can make the `downcast` function return a clone of the function instead of the reference:
@@ -424,7 +437,7 @@ error[E0521]: borrowed data escapes outside of method
 
 I think, there is no doubt that `Box<dyn ClonableFn<Arg, Ret>>` is `'static`. But due to `ClonableFn` trait extending an `Fn(&Arg)` trait there is some lifetime associated with the `&Arg` argument, and this lifetime prevents the Rust compiler from clearly understanding that `Box<dyn ClonableFn<Arg, Ret>>` is actually `'static`. Or at least, this is my understanding of what is going on here.
 
-The simplest solution for me was to just wrap the `Box` in a `struct` and adapt the code accordingly:
+The simplest solution for me was to just wrap the `Box<dyn CloneableFn>` in a `struct` and adapt the code accordingly:
 
 ```rs showLineNumbers=false collapse={5-10,12-16,24-30,41-52,55-60}
 // the function with a statically known type
@@ -509,7 +522,7 @@ Now that we have types to hold the functions, we can think about how to use them
 
 ### Using dynamic functions
 
-Let's first adapt our existing code to using the new types. It will still only support `float64` but potentially we would be able to add more:
+Let's first adapt our existing code to using the new types. It will still only support `float` type but potentially we would be able to add more:
 
 ```rs
 pub fn compile_expr<Ctx: ExprContext>(
@@ -553,7 +566,7 @@ In the code above, we check if the compiled expressions are of expected type and
 
 ### Compiler registry
 
-We definitely can add support for more types by just adding more `if` branches, but that would not be convenient in any way. My idea is to have the `Compiler`, that will actually hold the registry of the supported operations so that the `compile_expr` function can look up operations there and use them.
+We definitely can add support for more types by just adding more `if` branches, but that would not be convenient in any way. My idea is to have the `Compiler` struct, that will hold the registry of the supported operations so that the `compile_expr` function can look up operations there and use them.
 
 Something like this:
 
@@ -929,15 +942,15 @@ pub fn register_field_access<Obj: 'static, Field: 'static>(
 }
 ```
 
-It works very similar to `register_bin_op` and other `register_` functions we already have in the compiler: it takes a function takes a refence to the object as an argument and returns a field value, and a field name. It creates a closure that takes a `DynFn` that is expected to return an object of type `Obj` and returns a `DynFn` that returns the value of the field in the object. Than it stores it in the compiler by the key that includes the object type and the field name.
+It works very similar to `register_bin_op` and other `register_` functions we already have in the compiler: it takes a function that takes a reference to the object as an argument and returns a field value, and a field name. It creates a closure that takes a `DynFn` that is expected to return an object of type `Obj` and returns a `DynFn` that returns the value of the field in the object. Than it stores it in the compiler by the key that includes the object type and the field name.
 
 #### SupportedType trait
 
 But who will call the `register_field_access` function? As of now, `register_bin_op` and other similar functions are called in the compiler constructor. We cannot do this with field access, as we cannot expect the compiler to know the types for all the objects.
 
-Another thing that I would like to mention is that we already have the `ExprContext` trait, that is used for providing access to the field values of the objects.
+Another thing that I would like to mention is that we already have the `ExprContext` trait, that is already used for providing access to the field values of the objects.
 
-I think we can introduce new trait `SupportedType` that will replace `ExprContext`.
+I think we can introduce new trait `SupportedType` that will replace the `ExprContext` trait.
 
 ```rs
 trait SupportedType {
@@ -1126,7 +1139,7 @@ And finally, we can have a test:
 assert_eq!(eval("0.5 * user.age", &ctx), Ok(0.5 * ctx.user.age as f64));
 ```
 
-### Preventing registering the type multiple times
+### Fixing minor issues
 
 It is supposed that `SupportedType` implementations will be made by derive macro. The idea is that for each field of the struct it will call the field type's `register` function. This can lead to multiple calls of `register` for the same type. For this compiler can have a hash set of the already registered types. This is pretty straightforward to implement, and I spare you the reading of the source code for this. There was one thing I want to show here though:
 
@@ -1143,45 +1156,57 @@ pub fn register_type<T: SupportedType>(&mut self) {
     });
 }
 ```
-As you can see, `SupportedType::register` function accepts some `RegistryAccess` type instead of the `&mut CompilerRegistry`. That is needed to prevent errorneously calling `SomeType::register()` instead of `Registry::register_type::<SomeType>()`. 
 
-Another thing is that `register_` functions in the `CompilerRegistry` happily override entries registered by other types. This can lead to confusing errors later. It is better to detect such situations and produce an error if there is an attempt to register the same operation. The code for this is also trivial, but it has changed the `SupportedType` again, so that it can return an error now. Here is an implementation of SupportedType from the test:
+As you can see, `SupportedType::register` function accepts some `RegistryAccess` type instead of the `&mut CompilerRegistry`. That is needed to prevent errorneously calling `SomeType::register()` instead of `Registry::register_type::<SomeType>()`.
 
-```rs
-struct TestContext {
-    foo: i64,
-    bar: f64,
-    user: Rc<User>,
-}
-
-impl SupportedType for Rc<TestContext> {
-    fn register<Ctx: SupportedType>(
-        mut registry: RegistryAccess<Ctx, Self>,
-    ) -> Result<(), String> {
-        registry
-            .register_field_access("foo", |ctx: &Rc<TestContext>| {
-                ctx.foo.clone()
-            })?;
-        registry
-            .register_field_access("bar", |ctx: &Rc<TestContext>| {
-                ctx.bar.clone()
-            })?;
-        registry
-            .register_field_access("user", |ctx: &Rc<TestContext>| {
-                ctx.user.clone()
-            })?;
-
-        registry.register_type::<i64>()?;
-        registry.register_type::<f64>()?;
-        registry.register_type::<Rc<User>>()?;
-
-        Ok(())
-    }
-}
-```
+Another thing is that `register_` functions in the `CompilerRegistry` happily override entries registered by other types. This can lead to confusing errors later. It is better to detect such situations and produce an error if there is an attempt to register the same operation. The code for this is also trivial, but it has changed the `SupportedType` again, so that it can return an error.
 
 Now, we have a functional expression evaluation engine. It can access local variables and fields on the objects. Also it is extensible as we can add new types, casts between them, etc.
 
 The only unsupported feature in the compiler, that is already in the Parser and in the AST is function calls. The other thing is that we are forced to only use clonable values, which seems rather limiting.
 
 Git tag for this stage: [blog-006](https://github.com/romamik/typed-eval-rs/tree/blog-006)
+
+## Returning references
+
+## Function calls
+
+The `Expr` variant for function looks like this:
+
+```rs
+enum Expr {
+    ...
+    FuncCall(Box<Expr>, Vec<Expr>),
+```
+
+Where the `Box<Expr>` part is the expression that should return a function, and the `Vec<Expr>` is for arguments.
+
+I think we should support methods on objects rather than free functions. That makes more sense. Global functions will be methods on context with this setup, exactly the same as context fields are used as global variables.
+
+```rs
+fn compile_method_call(
+    &self,
+    object: DynFn,
+    method_name: &str,
+    arguments: &[Expr],
+) -> Result<DynFn, String> {
+    todo!()
+}
+
+
+pub fn compile_expr(&self, expr: &Expr) -> Result<DynFn, String> {
+...
+    Expr::FuncCall(function, arguments) => match function.as_ref() {
+        Expr::FieldAccess(object, field_name) => {
+            let object = self.compile_expr(object)?;
+            self.compile_method_call(object, field_name, arguments)?
+        }
+
+        Expr::Var(var_name) => {
+            let ctx = DynFn::new(|ctx: &Ctx| ctx.clone());
+            self.compile_method_call(ctx, var_name, arguments)?
+        }
+
+        _ => Err("unsupported function call")?,
+    },
+```
