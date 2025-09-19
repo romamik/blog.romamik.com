@@ -16,7 +16,7 @@ export default defineConfig({
     expressiveCode({
       useDarkModeMediaQuery: true,
       frames: {
-        showCopyToClipboardButton: false,
+        // showCopyToClipboardButton: false,
       },
       defaultProps: {
         preserveIndent: true,
