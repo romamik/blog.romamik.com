@@ -2,7 +2,7 @@
 title: "Chumsky Parser Recovery"
 pubDate: 2025-09-19
 description: "How to make your Chumsky parser handle mistakes gracefully."
-draft: true
+draft: false
 ---
 
 I have a project with a parser written using [chumsky](https://github.com/zesterer/chumsky).
