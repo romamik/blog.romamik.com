@@ -447,3 +447,7 @@ ast_parser.parse("[a 10 b, [ d 20 e, f 30 g] e, f 40 g] h") = ParseResult {
 You've reached the end of the post. It took me some effort to write, and I hope it was interesting and maybe even useful. Thank you very much for your attention.
 
 I would have been really glad to find something like this when I decided to implement error recovery in my parser.
+
+## Discussion
+
+Join the discussion on [Reddit](https://www.reddit.com/r/rust/comments/1nl03yl/chumsky_parser_recovery/).
