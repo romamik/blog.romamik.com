@@ -9,6 +9,12 @@ const { title, disableToc } = Astro.props;
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/favicon-96x96.png" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link
+      rel="alternate"
+      type="application/rss+xml"
+      title="blog.romamik.com RSS Feed"
+      href="/rss.xml"
+    />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{title}</title>
     <script is:inline>
@@ -57,8 +63,20 @@ const { title, disableToc } = Astro.props;
           </li>
         </ul>
         <span class="flex-1"></span>
-
         <div class="inline-flex gap-2">
+          <a
+            href="/rss.xml"
+            target="_blank"
+            rel="noopener"
+            id="toc-btn"
+            class="px-1 py-0.5 text-sm font-medium text-gray-900
+                border border-gray-900 rounded-lg
+                hover:bg-gray-900 hover:text-white
+                dark:border-white dark:text-white dark:hover:text-white dark:hover:bg-gray-700"
+          >
+            <Icon name="mdi:rss" size="1.4em" />
+            <span class="sr-only">RSS feed</span>
+          </a>
           <div id="theme-btn-group" class="js-only inline-flex" role="group">
             <div class="inline-flex">
               <input
