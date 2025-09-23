@@ -575,8 +575,6 @@ We can achieve this by allowing our compiled functions to take a context as an a
 type TypedCompiledFunction<Ctx, T> = Box<dyn Fn(&Ctx) -> T>;
 ```
 
-Once we have this, the compiler can generate functions that access the context. To keep things flexible, we don’t need to know the type of each field in advance. Instead of returning the value of a field directly, we can return a _getter function_ that, given the context, produces the field value:
-
 How can we use context in the compiler? One idea is to define a trait that allows us to access fields of the context. But we can’t quite do it like this:
 
 ```rs
