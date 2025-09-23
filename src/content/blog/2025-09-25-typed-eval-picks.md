@@ -5,11 +5,19 @@ description: "TODO"
 draft: true
 ---
 
-## Introducing typed-eval
+I have been working on a Rust crate called [**typed-eval**](https://github.com/romamik/typed-eval-rs). It is not finished yet, but the main ideas are already clear enough to share.
 
-[typed-eval](https://github.com/romamik/typed-eval-rs) is a Rust library I spent too many time working on lately. It started as a proof of concept, but in the end I found myself trying to make it something finished. I on my way to it though.
+**typed-eval** is an expression evaluation engine with two main features:
 
-Basically, it is a expression evaluation engine, implemented in Rust. It takes a string, and returns a function that can be called just like any other Rust function. The main idea behind it is combining closures, like in this example:
+- Compiled expressions – every expression is compiled into a Rust function (closure), so evaluating it is as fast as calling a function.
+- Typed results – each expression has a known type after compilation, and the compiler can cast the result to a different type if needed.
+
+In this post, I will show how typed-eval works internally, step by step, starting from a very simple version and gradually extending it with types, casting, and context.
+
+## Starting Simple: Expressions as Closures
+
+The core idea of `typed-eval` is that every expression is compiled into a Rust function.  
+We can achieve this by combining closures. Here is a minimal example:
 
 ```rs
 type CompiledFunction = Box<dyn Fn() -> i64>;
@@ -28,7 +36,8 @@ fn main() {
 }
 ```
 
-This can be used to compile an abstract syntax tree (AST) into a function:
+This shows how we can build functions that represent expressions. For something more structured, we can introduce an _abstract syntax tree (AST)_.
+Parsers usually produce an AST from source code, and we can then compile it into a function:
 
 ```rs
 enum Ast {
@@ -49,9 +58,10 @@ fn main() {
 }
 ```
 
-## Why does it have `typed` in the name
+## Extending Beyond a Single Type
 
-Having such an engine that can only work with one type is not really interesting. There can be different approaches, how can we add different types to such an engine. We want our functions to return different types.
+The engine above only works with one type (`i64`). That is not very interesting.  
+We want to extend it so that expressions can return different types.
 
 ```rs
 type CompiledFunction<T> = Box<dyn Fn() -> T>;
@@ -73,9 +83,12 @@ enum Ast<T> {
 }
 ```
 
-Stop. This way we may have different types, and this can be useful in some way, but what if we want to mix different types in one expression? For example, we may want to have a constant of type `String` and return it's length?
+This allows expressions of different types, which is useful. But what if we want to **mix types in the same expression**?  
+For example, what if we have a constant of type `String` and want to return its length?
 
-Can't we just do this:
+## First Attempt at Mixing Types: Enums
+
+So far, our engine can only handle one type at a time. What if we try to extend the AST with multiple types directly?
 
 ```rs
 enum Ast {
@@ -88,7 +101,10 @@ enum Ast {
 fn compile_ast(ast: Ast) -> // wait... What do write here?
 ```
 
-We can't do this, we need some type that does not depend on the type of the expression. One of the options is to define our `CompiledFunction` like this:
+At this point we hit a problem: the type of the compiled function depends on the type of the expression.  
+We need some common representation that works regardless of the return type.
+
+One option is to define a `CompiledFunction` enum that wraps functions of different return types:
 
 ```rs
 type TypedCompiledFunction<T> = Box<dyn Fn() -> T>;
@@ -99,7 +115,8 @@ enum CompiledFunction {
 }
 ```
 
-Believe me, it is possible to have it running. If you are curious, expand the code here:
+This makes it possible to write a working evaluator.  
+The full code below shows how constants, addition, and `get_length` can be implemented using this approach:
 
 ```rs showLineNumbers=false collapse={9-11,15-19,23-27,42-57,62-70,81-85,90-93,97-102} collapseStyle=collapsible-auto
 type TypedCompiledFunction<T> = Box<dyn Fn() -> T>;
@@ -211,9 +228,17 @@ fn main() {
 }
 ```
 
-If you were curious and observed the code, you can imagine that expanding such system would be a nightmare. Every supported type would require adding a enum variant and then matching it in every relevant section.
+This version works, but it has a clear drawback: every time we add a new type, the `CompiledFunction` enum grows, and every operation (`add`, `get_length`, …) needs to handle all type combinations explicitly. The number of cases increases quickly.
 
-Yes, we can do some tricks with the code above to make it better. But I think we need something different. What about storing our compiled function in `Box<dyn Any>`? `TypedCompiledFunction<T>` is a concrete type that we can put in and take from `Box<Any>`, so nothing crazy about it. Our function will be double-boxed, but why not? We can store `type_id` along the function to know the returned type.
+## A More Extensible Approach: `Box<dyn Any>`
+
+The enum-based approach works, but storing multiple types directly in an enum is not very flexible.  
+A cleaner solution is to store compiled functions in a type-erased box, using `Box<dyn Any>`.
+
+`TypedCompiledFunction<T>` is a concrete type that can be stored in a `Box<dyn Any>` and later downcasted.  
+We also store the `TypeId` of the return type, so we can safely downcast and call the function.
+
+Yes, the function will be double-boxed, but this design keeps the system flexible and ready for extension.
 
 ```rs showLineNumbers=false collapse={1-2,12-17,20-22,33-54,57-63,73-79,82-88} collapseStyle=collapsible-auto
 use std::any::{Any, TypeId};
@@ -312,9 +337,11 @@ fn main() {
 }
 ```
 
-I think it is worth it to compare the above code to the previous example. We saved ourselves a lot of work if would want to add more types in the future.
+Compared to the enum-based approach, the main advantage of using `Box<dyn Any>` is extensibility: we can add support for new types without changing existing code in multiple places.
 
-But look at the `compile_add` functions:
+## Operations and casting
+
+Using `Box<dyn Any>` makes it easy to add new types, but the `compile_add` function in the previous example still grows exponentially as we support more types:
 
 ```rs
 fn compile_add(
@@ -345,16 +372,22 @@ fn compile_add(
 }
 ```
 
-Not only we will need to support every type here, but also it will grow exponentially if would want to support addition between different types. Consider adding `i32`, that can be added we `i64` and also with `String`, we will need to add if blocks for every combination.
+For every new type, we would need to add `if` blocks for every combination of argument types.  
+For example, adding `i32` support would require handling combinations with `i64` and `String`, and the number of cases grows very quickly.
 
-Instead, we can define addition for types we want to support, and also cast operations between the types. For casts we would only want to support casts in one direction: `i32` to `i64`, or `i32` to `String`, but not the other way around. This way addition can work like this:
+A more scalable solution is to register operations and type casts separately:
 
-- If arguments have the same type check if this types supports addition
-- If arguments are of different types check if we cast one to another to make them same type
+- Define addition only for types that support it.
+- Define cast functions to convert between compatible types.
+- When adding two expressions:
+  - If the arguments have the same type, use the registered addition function.
+  - If they have different types, try casting one to match the other.
 
-With this in place, we will have linear amount of work when supporting new type: just add operations for that type and it's casts.
+With this system, adding a new type is linear: we only need to register its addition function and relevant casts.
 
-```rs showLineNumbers=false collapse={1-5,9-26,29-33,37-43,47-69,93-100,107-114,135-141,144-152,156-171} collapseStyle=collapsible-auto
+Here’s a working implementation:
+
+```rs showLineNumbers=true collapse={1-5,9-26,29-33,36-38,42-64,88-95,102-109,130-136,139-147,151-166} collapseStyle=collapsible-auto
 use std::{
     any::{Any, TypeId},
     collections::HashMap,
@@ -389,13 +422,8 @@ enum Ast {
     GetLength(Box<Ast>),
 }
 
-#[derive(Default)]
 struct Compiler {
-    add: HashMap<
-        TypeId,
-        fn(CompiledFunction, CompiledFunction) -> CompiledFunction,
-    >,
-
+    add: HashMap<TypeId, fn(CompiledFunction, CompiledFunction) -> CompiledFunction>,
     cast: HashMap<(TypeId, TypeId), fn(CompiledFunction) -> CompiledFunction>,
 }
 
@@ -528,13 +556,28 @@ fn main() {
 }
 ```
 
-You may notice that our expressions are not really useful: they always return some constant value. It will make sense to allow these expressions to access some context:
+Now `Compiler` can handle addition and casting in a flexible way:
+
+- `add` holds the registered addition functions per type.
+- `cast` holds the registered type conversions.
+- `make_same_type` tries to cast one argument to the type of the other.
+- `compile_add` uses these mechanisms instead of manually matching each combination.
+
+## Adding context
+
+So far, our expressions always return constant values. That’s useful for examples, but not very interesting in practice.
+We often want expressions that can depend on some external state - let's call it a context - so they can produce different
+results depending on the situation.
+
+We can achieve this by allowing our compiled functions to take a context as an argument:
 
 ```rs
 type TypedCompiledFunction<Ctx, T> = Box<dyn Fn(&Ctx) -> T>;
 ```
 
-How can we use it in the compiler? We can define a trait that allows us to access fields of context. But not like this:
+Once we have this, the compiler can generate functions that access the context. To keep things flexible, we don’t need to know the type of each field in advance. Instead of returning the value of a field directly, we can return a _getter function_ that, given the context, produces the field value:
+
+How can we use context in the compiler? One idea is to define a trait that allows us to access fields of the context. But we can’t quite do it like this:
 
 ```rs
 trait EvalContext {
@@ -542,18 +585,15 @@ trait EvalContext {
 }
 ```
 
-It would be possible for our compiler to leverage this, but much better would be to return a getter function instead of field value:
+Fortunately, there’s a better approach: instead of returning the field value directly, return a getter function that produces the value. This way, the compiler can use it seamlessly in expressions:
 
 ```rs
 trait EvalContext {
     // returns a function Ctx->FieldType
     fn field_getter(name: &str) -> Option<CompiledFunction>;
 }
-```
 
-Let's implement it for some type:
-
-```rs
+// Example implementation for a simple context
 struct Context {
     int: i64,
     string: String,
@@ -563,16 +603,19 @@ impl EvalContext for Context {
     fn field_getter(name: &str) -> Option<CompiledFunction> {
         match name {
             "int" => Some(CompiledFunction::new(move |ctx: &Context| ctx.int)),
-            "string" => Some(CompiledFunction::new(move |ctx: &Context| {
-                ctx.string.clone()
-            })),
+            "string" => Some(CompiledFunction::new(move |ctx: &Context| ctx.string.clone())),
             _ => None,
         }
     }
 }
 ```
 
-To use it in the compiler, we first need to add a new variant to the `Ast` enum, let's call it `ContextField`:
+For the compiler to use context, our AST needs to represent context access. We add a `ContextField` variant,
+so expressions can read fields from the context just like any other value:
+
+- `ConstInt` and `ConstString` produce constant values.
+- `ContextField` produces values from the context.
+- `Add` and `GetLength` behave as before, but can now operate on context-dependent values.
 
 ```rs
 enum Ast {
@@ -584,9 +627,11 @@ enum Ast {
 }
 ```
 
-And finally, after some work, we can have our expressions access context and be a little more useful:
+With the `ContextField` AST variant and context-aware compiled functions in place, our compiler can now generate expressions that read from the context and combine those values just like any other constants.
 
-```rs showLineNumbers=true collapse={1-5,10-27,42-50,54-91,94-95,111-118,125-132,139-150,153-159,162-171,175-177,180-189} collapseStyle=collapsible-auto
+Putting it all together, here is a working implementation of the compiler that supports context-aware expressions:
+
+```rs showLineNumbers=true collapse={1-5,10-27,42-47,51-88,91-92,95-101,108-115,122-129,136-147,150-156,159-168,172-174,177-186} collapseStyle=collapsible-auto
 use std::{
     any::{Any, TypeId},
     collections::HashMap,
@@ -628,10 +673,7 @@ trait EvalContext: 'static {
 }
 
 struct Compiler<Ctx> {
-    add: HashMap<
-        TypeId,
-        fn(CompiledFunction, CompiledFunction) -> CompiledFunction,
-    >,
+    add: HashMap<TypeId, fn(CompiledFunction, CompiledFunction) -> CompiledFunction>,
 
     cast: HashMap<(TypeId, TypeId), fn(CompiledFunction) -> CompiledFunction>,
 
@@ -803,4 +845,19 @@ fn main() {
 }
 ```
 
-I think this can be the end for this post. It demonstrated some of the ideas behind the `typed-eval` crate, but obviously the actual code is is more complicated but in return has more features.
+With this change, our expressions become much more flexible. They can now combine constants with values from the context, 
+allowing dynamic computations at runtime. 
+This approach keeps the type system safe while still letting the compiler generate efficient functions.
+
+## Final words
+
+With this design, we’ve gone from simple constant expressions to a flexible, context-aware compiler. Expressions are compiled into Rust functions, remain strongly typed, and can access arbitrary context values. The system is also extensible: adding new types, operations, or casts requires minimal changes, making it easy to grow as your needs evolve.
+
+[**typed-eval**](https://github.com/romamik/typed-eval-rs) includes features such as returning references, a Derive macro for context types, or support for objects and methods. But at its heart, it is fully based on the concepts we’ve explored in this post.
+
+A few additional points worth noting:
+* Performance: Since expressions are compiled into Rust closures, evaluation is fast. Type-erasure and dynamic dispatch via Box<dyn Any> only happen during compilation, not during execution.
+* Extensibility: Adding new operations (like multiplication or division) or new types (like Vec<T>) is straightforward and doesn’t require touching the core compiler logic.
+* Type safety: Despite using dyn Any, the system still checks types. Even though we did not implement full error reporting for conciseness, the compiler is capable of generating proper type errors instead of panics.
+
+Thank you for reading. I hope you enjoyed the journey through Rust's type system, closures, and a brief exercise in building a typed, extensible expression compiler.
