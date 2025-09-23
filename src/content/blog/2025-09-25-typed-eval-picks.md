@@ -1,8 +1,8 @@
 ---
-title: "Some Rust tricks I used in typed-eval"
-pubDate: 2025-09-25
-description: "TODO"
-draft: true
+title: "Building typed-eval: Typed, Extensible Expressions in Rust"
+pubDate: 2025-09-23
+description: "Learn how typed-eval compiles typed, context-aware expressions in Rust, and the approaches that make it flexible and extensible."
+draft: false
 ---
 
 I have been working on a Rust crate called [**typed-eval**](https://github.com/romamik/typed-eval-rs). It is not finished yet, but the main ideas are already clear enough to share.
@@ -387,7 +387,7 @@ With this system, adding a new type is linear: we only need to register its addi
 
 Here’s a working implementation:
 
-```rs showLineNumbers=true collapse={1-5,9-26,29-33,36-38,42-64,88-95,102-109,130-136,139-147,151-166} collapseStyle=collapsible-auto
+```rs showLineNumbers=false collapse={1-5,9-26,29-33,36-38,42-64,88-95,102-109,130-136,139-147,151-166} collapseStyle=collapsible-auto
 use std::{
     any::{Any, TypeId},
     collections::HashMap,
@@ -631,7 +631,7 @@ With the `ContextField` AST variant and context-aware compiled functions in plac
 
 Putting it all together, here is a working implementation of the compiler that supports context-aware expressions:
 
-```rs showLineNumbers=true collapse={1-5,10-27,42-47,51-88,91-92,95-101,108-115,122-129,136-147,150-156,159-168,172-174,177-186} collapseStyle=collapsible-auto
+```rs showLineNumbers=false collapse={1-5,10-27,42-47,51-88,91-92,95-101,108-115,122-129,136-147,150-156,159-168,172-174,177-186} collapseStyle=collapsible-auto
 use std::{
     any::{Any, TypeId},
     collections::HashMap,
