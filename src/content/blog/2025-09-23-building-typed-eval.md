@@ -265,8 +265,8 @@ This version works, but it has a clear drawback: every time we add a new type, t
 The enum-based approach works, but storing multiple types directly in an enum is not very flexible.  
 A cleaner solution is to store compiled functions in a type-erased box, using `Box<dyn Any>`.
 
-I believe most readers know `Box<dyn Any>`, but just in case: it is a type that allows storing a value of any type, 
-and then downcasting back to that type. 
+I believe most readers know `Box<dyn Any>`, but just in case: it is a type that allows storing a value of any type,
+and then downcasting back to that type.
 
 `TypedCompiledFunction<T>` is a concrete type that can be stored in a `Box<dyn Any>` and later downcasted.  
 We also store the `TypeId` of the return type, so we can safely downcast and call the function.
@@ -793,7 +793,7 @@ trait EvalContext: 'static {
 struct Compiler<Ctx> {
     add: HashMap<TypeId, fn(CompiledFunction, CompiledFunction) -> CompiledFunction>,
     cast: HashMap<(TypeId, TypeId), fn(CompiledFunction) -> CompiledFunction>,
-    ctx_ty: PhantomData<Ctx>, 
+    ctx_ty: PhantomData<Ctx>,
 }
 
 impl<Ctx: EvalContext> Compiler<Ctx> {
@@ -1074,3 +1074,7 @@ A few additional points worth noting:
 - Type safety: Despite using dyn Any, the system still checks types. Even though we did not implement full error reporting for conciseness, the compiler is capable of generating proper type errors instead of panics.
 
 Thank you for reading. I hope you enjoyed the journey through Rust's type system, closures, and a brief exercise in building a typed, extensible expression compiler.
+
+## Discussion
+
+Join the discussion on [Reddit](https://www.reddit.com/r/rust/comments/1npi7qt/building_typedeval_typed_expressions_in_rust).
