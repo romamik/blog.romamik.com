@@ -263,6 +263,9 @@ This version works, but it has a clear drawback: every time we add a new type, t
 The enum-based approach works, but storing multiple types directly in an enum is not very flexible.  
 A cleaner solution is to store compiled functions in a type-erased box, using `Box<dyn Any>`.
 
+I believe most readers know `Box<dyn Any>`, but just in case: it is a type that allows storing a value of any type, 
+and then downcasting back to that type. 
+
 `TypedCompiledFunction<T>` is a concrete type that can be stored in a `Box<dyn Any>` and later downcasted.  
 We also store the `TypeId` of the return type, so we can safely downcast and call the function.
 
@@ -494,6 +497,9 @@ impl Compiler {
     fn try_cast(&self, f: CompiledFunction, ty: TypeId) -> Result<CompiledFunction, CompiledFunction>
 
     // Make two CompiledFunctions have the same type (using registered casts)
+    // Try to cast b to a's type; if that fails, try casting a to b's type.
+    // If neither works, return None. This ensures both operands have the same type
+    // before performing an operation like addition.
     fn make_same_type(&self, a: CompiledFunction, b: CompiledFunction) -> Option<(CompiledFunction, CompiledFunction)>
 
     // compile_add now uses registered addition functions
@@ -503,7 +509,7 @@ impl Compiler {
         rhs: CompiledFunction,
     ) -> CompiledFunction {
         let Some((lhs, rhs)) = self.make_same_type(lhs, rhs) else {
-            panic!("Uncompatible types for addition");
+            panic!("Incompatible types for addition");
         };
         let Some(add_fn) = self.add.get(&lhs.ty) else {
             panic!("Type does not support addition")
@@ -613,6 +619,9 @@ impl Compiler {
         }
     }
 
+    // Try to cast b to a's type; if that fails, try casting a to b's type.
+    // If neither works, return None. This ensures both operands have the same type
+    // before performing an operation like addition.
     fn make_same_type(
         &self,
         a: CompiledFunction,
@@ -633,7 +642,7 @@ impl Compiler {
         rhs: CompiledFunction,
     ) -> CompiledFunction {
         let Some((lhs, rhs)) = self.make_same_type(lhs, rhs) else {
-            panic!("Uncompatible types for addition");
+            panic!("Incompatible types for addition");
         };
 
         assert_eq!(lhs.ty, rhs.ty);
@@ -782,7 +791,7 @@ trait EvalContext: 'static {
 struct Compiler<Ctx> {
     add: HashMap<TypeId, fn(CompiledFunction, CompiledFunction) -> CompiledFunction>,
     cast: HashMap<(TypeId, TypeId), fn(CompiledFunction) -> CompiledFunction>,
-    ctx_ty: PhantomData<Ctx>,
+    ctx_ty: PhantomData<Ctx>, 
 }
 
 impl<Ctx: EvalContext> Compiler<Ctx> {
@@ -1054,7 +1063,7 @@ This approach keeps the type system safe while still letting the compiler genera
 
 With this design, we’ve gone from simple constant expressions to a flexible, context-aware compiler. Expressions are compiled into Rust functions, remain strongly typed, and can access arbitrary context values. The system is also extensible: adding new types, operations, or casts requires minimal changes, making it easy to grow as your needs evolve.
 
-[**typed-eval**](https://github.com/romamik/typed-eval-rs) includes features such as returning references, a Derive macro for context types, or support for objects and methods. But at its heart, it is fully based on the concepts we’ve explored in this post.
+The code above was created for demonstration purposes only and omits many features. The actual [**typed-eval**](https://github.com/romamik/typed-eval-rs) crate includes features such as returning references, a Derive macro for context types, or support for objects and methods. But at its core, it is fully based on the concepts we’ve explored in this post.
 
 A few additional points worth noting:
 
