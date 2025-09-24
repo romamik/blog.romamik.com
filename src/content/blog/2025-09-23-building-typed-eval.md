@@ -14,6 +14,8 @@ I have been working on a Rust crate called [**typed-eval**](https://github.com/r
 
 In this post, I will show how typed-eval works internally, step by step, starting from a very simple version and gradually extending it with types, casting, and context.
 
+**Note**: The code shown in this post is for demonstration purposes only. The actual **typed-eval** crate is more complete and has more features.
+
 ## Starting Simple: Expressions as Closures
 
 The core idea of `typed-eval` is that every expression is compiled into a Rust function.  
