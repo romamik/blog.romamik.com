@@ -1,5 +1,5 @@
 ---
-title: "Building typed-eval: Typed, Extensible Expressions in Rust"
+title: "Building typed-eval: Typed Expressions in Rust"
 pubDate: 2025-09-23
 description: "Learn how typed-eval compiles typed, context-aware expressions in Rust, and the approaches that make it flexible and extensible."
 draft: false
