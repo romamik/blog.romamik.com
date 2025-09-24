@@ -118,7 +118,33 @@ enum CompiledFunction {
 This makes it possible to write a working evaluator.  
 The full code below shows how constants, addition, and `get_length` can be implemented using this approach:
 
-```rs showLineNumbers=false collapse={9-11,15-19,23-27,42-57,62-70,81-85,90-93,97-102} collapseStyle=collapsible-auto
+```rs
+// compile_const now uses apropriate variant
+fn compile_const<T: EvalType>(val: T) -> CompiledFunction {
+    T::new_compiled_function(move || val.clone())
+}
+
+// compile_add handles all type combinations
+fn compile_add(
+    lhs: CompiledFunction,
+    rhs: CompiledFunction,
+) -> CompiledFunction {
+    match (lhs, rhs) {
+        (CompiledFunction::Int(lhs), CompiledFunction::Int(rhs)) => i64::new_compiled_function(move || lhs() + rhs())
+        (CompiledFunction::Int(lhs), CompiledFunction::String(rhs)) => String::new_compiled_function(move || lhs().to_string() + rhs().as_str())
+        (CompiledFunction::String(lhs), CompiledFunction::Int(rhs)) => String::new_compiled_function(move || lhs() + rhs().to_string().as_str())
+        (CompiledFunction::String(lhs), CompiledFunction::String(rhs)) => String::new_compiled_function(move || lhs() + rhs().as_str())
+    }
+}
+
+// compile_get_length only works for strings
+fn compile_get_length(s: Ast) -> CompiledFunction { ... }
+```
+
+<details>
+<summary><b>Full source code for reference</b></summary>
+
+```rs
 type TypedCompiledFunction<T> = Box<dyn Fn() -> T>;
 
 enum CompiledFunction {
@@ -228,6 +254,8 @@ fn main() {
 }
 ```
 
+</details>
+
 This version works, but it has a clear drawback: every time we add a new type, the `CompiledFunction` enum grows, and every operation (`add`, `get_length`, …) needs to handle all type combinations explicitly. The number of cases increases quickly.
 
 ## A More Extensible Approach: `Box<dyn Any>`
@@ -240,7 +268,72 @@ We also store the `TypeId` of the return type, so we can safely downcast and cal
 
 Yes, the function will be double-boxed, but this design keeps the system flexible and ready for extension.
 
-```rs showLineNumbers=false collapse={1-2,12-17,20-22,33-54,57-63,73-79,82-88} collapseStyle=collapsible-auto
+```rs
+// TypedCompiledFunction is type-specific
+type TypedCompiledFunction<T> = Box<dyn Fn() -> T>;
+
+// CompiledFunction can store any type
+struct CompiledFunction {
+    f: Box<dyn Any>, // stores TypedCompiledFunction<T>
+    ty: TypeId,      // stores TypeId::of::<T>()
+}
+
+impl CompiledFunction {
+    // Create CompiledFunction from a closure
+    fn new<T: 'static>(f: impl Fn() -> T + 'static) -> Self {
+        let typed_fn: TypedCompiledFunction<T> = Box::new(f);
+        Self {
+            f: Box::new(typed_fn),
+            ty: TypeId::of::<T>(),
+        }
+    }
+
+    // Downcast back to a typed closure; panics if type mismatches
+    fn downcast<T: 'static>(self) -> impl Fn() -> T {
+        assert_eq!(self.ty, TypeId::of::<T>());
+        self.f.downcast::<TypedCompiledFunction<T>>().unwrap()
+    }
+}
+
+// compile_const looks almost the same
+fn compile_const<T: Clone + 'static>(val: T) -> CompiledFunction {
+    CompiledFunction::new(move || val.clone())
+}
+
+// compile_add still handles all type combinations
+// but now it uses TypeId instead of enum variants
+fn compile_add(
+    lhs: CompiledFunction,
+    rhs: CompiledFunction,
+) -> CompiledFunction {
+    let i64_ty = TypeId::of::<i64>();
+    let str_ty = TypeId::of::<String>();
+    if lhs.ty == i64_ty && rhs.ty == i64_ty {
+        let lhs = lhs.downcast::<i64>();
+        let rhs = rhs.downcast::<i64>();
+        CompiledFunction::new(move || lhs() + rhs())
+    } else if lhs.ty == i64_ty && rhs.ty == str_ty {
+        let lhs = lhs.downcast::<i64>();
+        let rhs = rhs.downcast::<String>();
+        CompiledFunction::new(move || format!("{}{}", lhs(), rhs()))
+    } else if lhs.ty == str_ty && rhs.ty == i64_ty {
+        let lhs = lhs.downcast::<String>();
+        let rhs = rhs.downcast::<i64>();
+        CompiledFunction::new(move || format!("{}{}", lhs(), rhs()))
+    } else if lhs.ty == str_ty && rhs.ty == str_ty {
+        let lhs = lhs.downcast::<String>();
+        let rhs = rhs.downcast::<String>();
+        CompiledFunction::new(move || format!("{}{}", lhs(), rhs()))
+    } else {
+        panic!("Unsupported add")
+    }
+}
+```
+
+<details>
+<summary><b>Full source code for reference</b></summary>
+
+```rs
 use std::any::{Any, TypeId};
 
 type TypedCompiledFunction<T> = Box<dyn Fn() -> T>;
@@ -337,6 +430,8 @@ fn main() {
 }
 ```
 
+</details>
+
 Compared to the enum-based approach, the main advantage of using `Box<dyn Any>` is extensibility: we can add support for new types without changing existing code in multiple places.
 
 ## Operations and casting
@@ -387,7 +482,41 @@ With this system, adding a new type is linear: we only need to register its addi
 
 Here’s a working implementation:
 
-```rs showLineNumbers=false collapse={1-5,9-26,29-33,36-38,42-64,88-95,102-109,130-136,139-147,151-166} collapseStyle=collapsible-auto
+```rs
+// Instead of manually matching all type combinations, register operations and casts
+struct Compiler {
+    add: HashMap<TypeId, fn(CompiledFunction, CompiledFunction) -> CompiledFunction>,
+    cast: HashMap<(TypeId, TypeId), fn(CompiledFunction) -> CompiledFunction>,
+}
+
+impl Compiler {
+    // Try to cast one CompiledFunction to another type
+    fn try_cast(&self, f: CompiledFunction, ty: TypeId) -> Result<CompiledFunction, CompiledFunction>
+
+    // Make two CompiledFunctions have the same type (using registered casts)
+    fn make_same_type(&self, a: CompiledFunction, b: CompiledFunction) -> Option<(CompiledFunction, CompiledFunction)>
+
+    // compile_add now uses registered addition functions
+    fn compile_add(
+        &self,
+        lhs: CompiledFunction,
+        rhs: CompiledFunction,
+    ) -> CompiledFunction {
+        let Some((lhs, rhs)) = self.make_same_type(lhs, rhs) else {
+            panic!("Uncompatible types for addition");
+        };
+        let Some(add_fn) = self.add.get(&lhs.ty) else {
+            panic!("Type does not support addition")
+        };
+        add_fn(lhs, rhs)
+    }
+}
+```
+
+<details>
+<summary><b>Full source code for reference</b></summary>
+
+```rs
 use std::{
     any::{Any, TypeId},
     collections::HashMap,
@@ -556,6 +685,8 @@ fn main() {
 }
 ```
 
+</details>
+
 Now `Compiler` can handle addition and casting in a flexible way:
 
 - `add` holds the registered addition functions per type.
@@ -629,7 +760,77 @@ With the `ContextField` AST variant and context-aware compiled functions in plac
 
 Putting it all together, here is a working implementation of the compiler that supports context-aware expressions:
 
-```rs showLineNumbers=false collapse={1-5,10-27,42-47,51-88,91-92,95-101,108-115,122-129,136-147,150-156,159-168,172-174,177-186} collapseStyle=collapsible-auto
+```rs
+// TypeCompiledFunction now takes a context
+type TypedCompiledFunction<Ctx, T> = Box<dyn Fn(&Ctx) -> T>;
+
+// AST has a variant for context access
+enum Ast {
+    ConstInt(i64),
+    ConstString(String),
+    ContextField(String), // <--- new
+    Add(Box<Ast>, Box<Ast>),
+    GetLength(Box<Ast>),
+}
+
+// Trait to get fields from context
+trait EvalContext: 'static {
+    fn field_getter(name: &str) -> Option<CompiledFunction>;
+}
+
+// Compiler has become generic over context
+struct Compiler<Ctx> {
+    add: HashMap<TypeId, fn(CompiledFunction, CompiledFunction) -> CompiledFunction>,
+    cast: HashMap<(TypeId, TypeId), fn(CompiledFunction) -> CompiledFunction>,
+    ctx_ty: PhantomData<Ctx>,
+}
+
+impl<Ctx: EvalContext> Compiler<Ctx> {
+    // New function to compile context access
+    fn compile_context_field(&self, name: String) -> CompiledFunction {
+        let Some(getter) = Ctx::field_getter(name.as_str()) else {
+            panic!("no such field");
+        };
+        // getter is a function that takes Ctx and returns context field value
+        // it is exactly what we need here
+        getter
+    }
+
+    // compile_ast handles new AST variant
+    fn compile_ast(&self, ast: Ast) -> CompiledFunction {
+        match ast {
+            Ast::ConstInt(val) => self.compile_const(val),
+            Ast::ConstString(s) => self.compile_const(s),
+            Ast::ContextField(name) => self.compile_context_field(name), // <--- new
+            Ast::Add(lhs, rhs) => self.compile_add(self.compile_ast(*lhs), self.compile_ast(*rhs)),
+            Ast::GetLength(s) => self.compile_get_length(*s),
+        }
+    }
+}
+
+// Example context
+struct Context { int: i64, string: String }
+
+impl EvalContext for Context { ... }
+
+// Usage example
+let compiler = Compiler::<Context>::new();
+
+let f = compiler
+    .compile_ast(Ast::Add(
+        Box::new(Ast::ContextField("int".into())),
+        Box::new(Ast::ConstInt(20)),
+    ))
+    .downcast::<Context, i64>();
+
+let ctx = Context { int: 10, string: "Hello, world".into() };
+assert_eq!(f(&ctx), 30);
+```
+
+<details>
+<summary><b>Full source code for reference</b></summary>
+
+```rs
 use std::{
     any::{Any, TypeId},
     collections::HashMap,
@@ -843,8 +1044,10 @@ fn main() {
 }
 ```
 
-With this change, our expressions become much more flexible. They can now combine constants with values from the context, 
-allowing dynamic computations at runtime. 
+</details>
+
+With this change, our expressions become much more flexible. They can now combine constants with values from the context,
+allowing dynamic computations at runtime.
 This approach keeps the type system safe while still letting the compiler generate efficient functions.
 
 ## Final words
@@ -854,8 +1057,9 @@ With this design, we’ve gone from simple constant expressions to a flexible, c
 [**typed-eval**](https://github.com/romamik/typed-eval-rs) includes features such as returning references, a Derive macro for context types, or support for objects and methods. But at its heart, it is fully based on the concepts we’ve explored in this post.
 
 A few additional points worth noting:
-* Performance: Since expressions are compiled into Rust closures, evaluation is fast. Type-erasure and dynamic dispatch via Box<dyn Any> only happen during compilation, not during execution.
-* Extensibility: Adding new operations (like multiplication or division) or new types (like Vec<T>) is straightforward and doesn’t require touching the core compiler logic.
-* Type safety: Despite using dyn Any, the system still checks types. Even though we did not implement full error reporting for conciseness, the compiler is capable of generating proper type errors instead of panics.
+
+- Performance: Since expressions are compiled into Rust closures, evaluation is fast. Type-erasure and dynamic dispatch via Box<dyn Any> only happen during compilation, not during execution.
+- Extensibility: Adding new operations (like multiplication or division) or new types (like Vec<T>) is straightforward and doesn’t require touching the core compiler logic.
+- Type safety: Despite using dyn Any, the system still checks types. Even though we did not implement full error reporting for conciseness, the compiler is capable of generating proper type errors instead of panics.
 
 Thank you for reading. I hope you enjoyed the journey through Rust's type system, closures, and a brief exercise in building a typed, extensible expression compiler.
