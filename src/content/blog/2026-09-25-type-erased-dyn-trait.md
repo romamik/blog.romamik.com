@@ -7,11 +7,11 @@ draft: false
 
 ## Introduction
 
-In Rust, `Box<dyn Any>` lets you store any type and recover it later, but what if you don’t want the concrete type? What if you want to go back to a `Box<dyn SomeTrait>` instead?  
+In Rust, `Box<dyn Any>` lets you store any type and recover it later, but what if you don’t want the concrete type? What if you want to go back to a `Box<dyn SomeTrait>` instead?
 
-In this post, I’ll show how to type-erase `dyn` trait objects - including `dyn Fn` - so that you can store them and call them later.  
+In this post, I’ll show how to type-erase `dyn` trait objects - including `dyn Fn` - so that you can store them and call them later.
 
-A concrete illustration of the problem comes from a [previous post about `typed-eval`](../2025-09-23-building-typed-eval), where I stored a `Box<dyn Fn(&A) -> R>` inside a `Box<dyn Any>`. 
+A concrete illustration of the problem comes from a [previous post about `typed-eval`](../2025-09-23-building-typed-eval), where I stored a `Box<dyn Fn(&A) -> R>` inside a `Box<dyn Any>`.
 
 The goal is to have a type-erased function that can be downcast back to something callable. Ideally, the interface would look like this:
 
@@ -105,6 +105,42 @@ Thus, it’s safe to convert it to a `*const ()` and back to `DynMetadata` if we
 Here’s the `TypeErasedBox` implementation I ended up with:
 
 ```rs
+// !! Some details stripped for readility here !!
+
+/// A type-erased `Box<dyn Trait>`.
+/// Similar to `Box<dyn Any>`, but stores trait objects instead of concrete types.
+struct TypeErasedBox {
+    data_pointer: *mut (), // pointer to the actual data stored in the box
+    metadata: *const (),   // pointer to the trait object's metadata (vtable)
+    type_id: TypeId, // the TypeId of the concrete type stored (TypeId::of::<dyn Trait>())
+    drop_fn: Option<fn(&mut Self)>, // function to free the heap-allocated memory
+}
+
+impl TypeErasedBox {
+    /// Constructs a TypeErasedBox by erasing the concrete type of `Box<dyn Trait>`.
+    /// The type parameter `T` represents the `dyn Trait` being erased.
+    pub fn new<T>(box_dyn: Box<T>) -> Self {
+        let (data_pointer, metadata) = Box::into_raw(box_dyn).to_raw_parts();
+        let metadata: *const () = unsafe { std::mem::transmute(metadata) };
+        ..
+        TypeErasedBox { .. }
+    }
+
+    /// Attempts to downcast the stored type back to `&dyn Trait`.
+    /// Returns `None` if the stored type does not match.
+    pub fn downcast_ref<T>(&self) -> Option<&T> {
+        if self.type_id != TypeId::of::<T>() { return None }
+        let metadata: DynMetadata<T> = unsafe { std::mem::transmute(self.metadata) };
+        let ptr = std::ptr::from_raw_parts_mut(self.data_pointer, metadata);
+        Some(unsafe { &*ptr })
+    }
+}
+```
+
+<details>
+<summary><b>Full source code for reference</b></summary>
+
+```rs
 #![feature(ptr_metadata)]
 
 use std::{
@@ -115,14 +151,15 @@ use std::{
 /// A type-erased `Box<dyn Trait>`.
 /// Similar to `Box<dyn Any>`, but stores trait objects instead of concrete types.
 struct TypeErasedBox {
-    data_pointer: *mut (),
-    metadata: *const (),
-    type_id: TypeId,
-    drop_fn: Option<fn(&mut Self)>,
+    data_pointer: *mut (), // pointer to the actual data stored in the box
+    metadata: *const (),   // pointer to the trait object's metadata (vtable)
+    type_id: TypeId, // the TypeId of the concrete type stored (TypeId::of::<dyn Trait>())
+    drop_fn: Option<fn(&mut Self)>, // function to free the heap-allocated memory
 }
 
 impl Drop for TypeErasedBox {
     fn drop(&mut self) {
+        // call the drop function exactly once when the TypeErasedBox is dropped
         if let Some(drop_fn) = self.drop_fn.take() {
             drop_fn(self)
         }
@@ -130,6 +167,8 @@ impl Drop for TypeErasedBox {
 }
 
 impl TypeErasedBox {
+    /// Constructs a TypeErasedBox by erasing the concrete type of `Box<dyn Trait>`.
+    /// The type parameter `T` represents the `dyn Trait` being erased.
     pub fn new<T>(box_dyn: Box<T>) -> Self
     where
         T: Pointee<Metadata = DynMetadata<T>> + ?Sized + 'static,
@@ -143,6 +182,8 @@ impl TypeErasedBox {
         let metadata: *const () = unsafe { std::mem::transmute(metadata) };
         let type_id = TypeId::of::<T>();
 
+        // Reconstructs the original `Box<T>` and drops it safely.
+        // Ownership is transferred back to Rust exactly once, ensuring proper memory management.
         fn drop_fn<T>(me: &mut TypeErasedBox)
         where
             T: Pointee<Metadata = DynMetadata<T>> + ?Sized + 'static,
@@ -163,6 +204,8 @@ impl TypeErasedBox {
         }
     }
 
+    /// Attempts to downcast the stored type back to `&dyn Trait`.
+    /// Returns `None` if the stored type does not match.
     pub fn downcast_ref<T>(&self) -> Option<&T>
     where
         T: Pointee<Metadata = DynMetadata<T>> + ?Sized + 'static,
@@ -177,7 +220,8 @@ impl TypeErasedBox {
         // owned by this container, so creating a shared reference is valid.
         Some(unsafe { &*ptr })
     }
-
+    // Internal helper that reconstructs a pointer to the stored type.
+    // Should only be called when the type matches.
     fn as_ptr_impl<T>(&self) -> *mut T
     where
         T: Pointee<Metadata = DynMetadata<T>> + ?Sized + 'static,
@@ -194,6 +238,8 @@ impl TypeErasedBox {
     }
 }
 ```
+
+</details>
 
 This struct allows storing any trait object in a type-erased way and recovering it later via `downcast_ref`. Internally, it works by breaking the `Box<dyn Trait>` into its two components: the data pointer and the metadata pointer (which points to the vtable). These are stored in a type-erased form (`*mut ()` for data and `*const ()` for metadata), and the original `Box<dyn Trait>` is reconstructed on demand when `downcast_ref` is called.
 
