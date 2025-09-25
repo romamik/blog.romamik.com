@@ -2,7 +2,7 @@
 title: "Type-erasing dyn traits in Rust"
 pubDate: 2025-09-25
 description: "How to store and recover trait objects without knowing their concrete type in Rust"
-draft: true
+draft: false
 ---
 
 ## Introduction
