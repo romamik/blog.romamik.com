@@ -277,3 +277,9 @@ I don’t plan to use this in the `typed-eval` crate for now, but the perfection
 I’m not an expert in unsafe Rust, so if you see anything wrong here, I would greatly appreciate feedback.
 
 Thank you for reading.
+
+
+### Discussion
+
+Join the discussion on [Reddit](https://www.reddit.com/r/rust/comments/1nq6ic5/typeerasing_dyn_traits_in_rust).
+
