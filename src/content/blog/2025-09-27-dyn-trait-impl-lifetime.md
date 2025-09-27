@@ -19,6 +19,8 @@ impl<'a> dyn Trait + 'a {
 }
 ```
 
+Note that here we are writing an `impl` block **for a trait object type** (`dyn Trait`), not implementing a trait for a concrete type. This is relatively uncommon in Rust. A familiar example from the standard library is `impl dyn Any`, which defines inherent methods on the trait object itself, but does **not** include an explicit lifetime.
+
 While the question is totally unrelated to the lifetime in this snippet, it made me wonder why it is there. Interestingly, the code also happily compiles without mentioning the lifetime:
 
 ```rs
