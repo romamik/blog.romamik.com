@@ -45,7 +45,7 @@ As a side note: for pure functions, you could theoretically use function pointer
 
 ## Using `Box<dyn Fn>` Inside `Box<dyn Any>`
 
-We can, however, store a function or closure in a `Box<dyn Fn>` and then put that inside a `Box<dyn Any>`. A `Box<dyn Fn>` is a callable type that can hold any function or closure matching its argument and return types—for example, `Box<dyn Fn(i32) -> i32>` can store any closure or function that takes an `i32` and returns an `i32`.
+We can, however, store a function or closure in a `Box<dyn Fn>` and then put that inside a `Box<dyn Any>`. A `Box<dyn Fn>` is a callable type that can hold any function or closure matching its argument and return types - for example, `Box<dyn Fn(i32) -> i32>` can store any closure or function that takes an `i32` and returns an `i32`.
 
 By storing the `Box<dyn Fn>` inside a `Box<dyn Any>`, we achieve type erasure while still being able to recover a callable reference later. Here’s how it works:
 
