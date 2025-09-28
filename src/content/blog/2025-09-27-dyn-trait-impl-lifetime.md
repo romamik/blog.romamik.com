@@ -1,8 +1,8 @@
 ---
 title: "The Mystery of Rust Quiz #10"
-pubDate: 2025-09-27
+pubDate: 2025-09-28
 description: "Why specifying a lifetime on `impl` blocks for trait objects matters in Rust."
-draft: true
+draft: false
 ---
 
 I just stumbled upon [Rust Quiz](https://dtolnay.github.io/rust-quiz). Normally, I am not a fan of questions like: _what will be the output of this obscure program that uses abnormal syntax_. My answer is usually: _Don't write obscure syntax and you won't need to guess_. But this quiz seems a bit different so far.
