@@ -105,6 +105,4 @@ fn main() {
 }
 ```
 
-This illustrates that the `'a` is not redundant: it allows trait objects to hold references to non-'static types.
-
 So why did Dtolnay add the `'a` there? While the quiz doesn’t depend on it, the lifetime is technically meaningful: it allows the trait object to hold references that are not `'static`.
