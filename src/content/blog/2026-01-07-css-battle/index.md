@@ -286,3 +286,7 @@ This code produces the desired image and, after removing the whitespace, is equi
 ## Final words
 
 It took more time than I expected to write this up. It was definitely interesting for me, and I would like to do something like this again. I hope you also enjoyed reading this blog post.
+
+## Discussion
+
+Join the discussion on [Reddit](https://www.reddit.com/r/css/comments/1q6n6i2/decomposing_top_css_battle_solutions).
