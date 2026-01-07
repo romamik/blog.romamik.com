@@ -1,7 +1,7 @@
 ---
-title: "todo"
+title: "docker and docker compose"
 pubDate: 2025-12-18
-description: "todo"
+description: "How to use docker and docker compose for small projects"
 draft: true
 ---
 
