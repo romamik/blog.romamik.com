@@ -7,27 +7,41 @@ draft: true
 
 ## What is this about?
 
-When working on personal projects, web applications in particular, you need to know how to code, think of the architecture, design, and many other things. But also you want to have good development setup that is easy to recreate on another machine and a way to run your app in production that is not pushing compiled binaries to the server with SSH. On the other hands, you do not want to overcomplicate things, as it is a small project, maybe even just a proof of concept.
+When working on personal projects, web applications in particular, you need to know how to code, think of the architecture, design, and many other things. But also you want to have good development setup that is easy to recreate on another machine and a way to run your app in production that is not pushing compiled binaries to the server with SSH. On the other hand, you do not want to overcomplicate things, as it is a small project, maybe even just a proof of concept.
 
 I am going to share my setup, that I use in such cases and find it a good balance between complexity and ease of use. In the end we will have setup that allows to have one command that will start everything needed for local development, reload on updates to both server and frontend code, and additionally a command to run everything in production mode.
 
-What I do is run everything in a Docker using Docker Compose, both for development and in production. This can scale to using Kubernetes if you eventually need more than one server, it is possible to add some CI/CD setup to this, but this is out of scope for this blog post.
+What I do is run everything in a Docker using Docker Compose, both for development and in production. This can be scaled to using Kubernetes if you eventually need more than one server, it is possible to CI/CD, and many more, but this is out of scope for this blog post.
+
+## Where we’re going
+
+We’ll build a small web application with:
+
+- PostgreSQL
+- Backend API (Node.js)
+- Frontend (React)
+- Reverse proxy
+- One-command startup for:
+  - local development (hot reload)
+  - production
+
+Later, we’ll add alternative backends (Go, Rust, Python) to the same setup, just to make this post useful for people who use these.
 
 ## Docker and Docker Compose
 
-I assume, you already know this, but I will still sum it up shortly. Docker is a way to create containers and run them. You can think of them as separate virtual machines, even though it is not fully technically correct. Typically you use two types of docker containers: ones that you build yourself from the Dockerfiles and prebuilt ones from the public registry, such as Docker Hub.
+I assume, you already know this, but I will still sum it up shortly. Docker is a way to create containers and run them. You can think of containers as of virtual machines, even though it is not fully technically correct. Typically you use two types of docker containers: ones that you build yourself from the Dockerfiles and prebuilt ones from the public registries, such as Docker Hub. It is also possible to run your own registry or push your container images to the public registry.
 
-Docker Compose is a way to describe several containers that should run together. 
+Docker Compose is a way to describe several containers that should run together.
 
-### Running containers from the registry
+## PostgreSQL
 
-I will not show how to run containers without a registry. It is possible, and sometimes it can come handy, but actually in my own work I do this rarely. So let's start with simple docker compose setup that will just run some container. Most of the projects require some sort of the database, so we can run PostgreSQL.
+It is possible to run containers using the Docker CLI, but for this post, I will only run them using Docker Compose.
 
-Let's create a file named `docker-compose.yml`
+Most projects need a database, so let's start with running [PostgreSQL](https://www.postgresql.org/).
+
+Let's create our `docker-compose.yml` file. For now it will only run PostgreSQL database.
 
 ```yml
-services:
-
   db:
     image: postgres
     restart: always
@@ -35,6 +49,61 @@ services:
       POSTGRES_USER: $POSTGRES_USER
       POSTGRES_PASSWORD: $POSTGRES_PASSWORD
       POSTGRES_DB: $POSTGRES_DB
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    ports:
+      - 5432:5432
+
+volumes:
+  postgres_data:
+```
+
+Also, we will need an `.env` file:
+
+```sh
+POSTGRES_DB=db
+POSTGRES_USER=psql_user
+POSTGRES_PASSWORD=psql_password
+```
+
+With these files in place, we can start and stop the container using these commands:
+
+```sh
+# start the containers and show it's logs in the console, stop the containers with Ctrl-C
+docker compose up
+
+# start the conainers in the background
+docker compose up --detach
+
+# stop the containers
+docker compose down
+```
+
+If you have `pgsql` tool installed you can connect to the running PostgresSQL like this:
+
+```sh
+psql postgres://psql_user:psql_password@localhost/db
+```
+
+Inside you can run `SELECT version();` to just see if it works correctly, and `\q` to quit.
+
+## Adminer
+
+We can add [Adminer](https://www.adminer.org/) to our setup. It is a lightweight database administration tool, that can come handy if you want to do something with your database manually.
+
+Let's update our `docker-compose.yml` file:
+
+```yml
+services:
+  db:
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_USER: $POSTGRES_USER
+      POSTGRES_PASSWORD: $POSTGRES_PASSWORD
+      POSTGRES_DB: $POSTGRES_DB
+    volumes:
+      - postgres_data:/var/lib/postgresql
     ports:
       - 5432:5432
 
@@ -45,44 +114,71 @@ services:
       ADMINER_DEFAULT_SERVER: db
     ports:
       - 8080:8080
+
+volumes:
+  postgres_data:
 ```
 
-Also, we will need an `.env` file:
-```sh
-POSTGRES_DB=postgres
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=postgres
+After restarting the containers with `docker compose down` and `docker compose up` we should have both PostgreSQL and Adminer running.
+Visit http://localhost:8080 to get to the Adminer interface. You will need to select PostgresSQL and provide credentials we specified in the `.env` file to get to the database.
+
+## Docker-compose.yml explained
+
+Let's look at the docker compose file we created and see what it means.
+
+We have specified that we need to services, named `db` and `adminer`. These services are available in the internal docker network by these names.
+
+Both services specify images to use: `postgres` and `adminer`. They will be downloaded from [Docker Hub](https://hub.docker.com/) on the first run. It is possible to specify versions, for example we could have wrote `postgres:18` or `postgres:18.1-alpine3.23` if we wanted to be more specific.
+
+`restart:always` is the restart policy. With this setting Compose will try to restart the container if it stops for any reason.
+
+It is possible to specify environment variables that will be available inside the container. For PostgreSQL we passed some environment variables from the host (specified in the `.env` file):
+
+```yml
+environment:
+  POSTGRES_USER: $POSTGRES_USER
+  POSTGRES_PASSWORD: $POSTGRES_PASSWORD
+  POSTGRES_DB: $POSTGRES_DB
 ```
 
-This docker compose file describes two services named `db` and `adminer`. `db` is the PostgreSQL server and `adminer` is the db administration tool. Both will be taken from the [docker hub](https://hub.docker.com).
+For the Adminer we specified a concrete value, namely we the server name to `db` which is the service name of PostgreSQL service.
 
-To start the containers we can just run:
-```
-docker-compose up
-```
-or 
-```
-docker-compose up --detach
+```yml
+environment:
+  ADMINER_DEFAULT_SERVER: db
 ```
 
-Both do the same thing: start the containers specified in the docker-compose file. But the detach one does not lock your terminal.
+PostgreSQL has a `volumes` keys, and also we have `postgres_data` specified at the end of file:
 
-To stop the containers you can just hit `Ctrl-C` if they are not detached, or run
+```yml
+    volumes:
+      - postgres_data:/var/lib/postgresql
+
+volumes:
+  postgres_data:
 ```
-docker-compose down
+
+This created a named volume and mounted it to the container under the specified mount point. It is also possible to mount the file or the folder from the host to the container. The syntax is the same, but you need to specify path on host relative to the docker compose file in the left part.
+
+In case of the PostgreSQL this allows to separate the database data from the container. Without this data will live inside the container and updating the container in any way can delete the data. Additionally, you can for example mount the same volume into another container for backup.
+
+Finally, both containers have ports specified. These are ports that are exposed outside the docker. It is specified in form `host_port:container_port`.
+
+```yml
+ports:
+  - 8080:8080
 ```
 
-With this example, when the containers are running you can visit http://localhost:8080 and see and the Adminer interface there. 
+## Node.js backend
 
-You may notice that adminer connects to the PostgreSQL using hostname "db" which matches the service name. This is because they are both connected to the docker network and docker internal dns service resolves the names of the services. It is also worth noting that docker creates separate networks for different setups, by default based on the folder where the docker-compose file is situated, so even if you have similarly named containers in different docker-compose setups they will not see each other. To access this internal network from our machine we exposed the 8080 port of the adminer service, and because of that we can access it on localhost.
+Let's now put a Node.js powered backend into container. This time we will not use a predefined container image from Docker Hub, but created our own small application to run.
 
-### Defining your own container
+#### Source code
 
-#### Creating a simple web app with Node.js
+Before creating a container we need to have an app that we will run in that container. Let's start with the simple Node.js/Express app. It will connect to the database and do something simple with it.
 
-Before creating a container we need to have an app that will be run in that container. Let's start with the simple Node.js/Express app. I will cover other options later, but for now we will create a very simple application that will still connect to our database.
+Let's create a folder named `node-app` and run the following commands:
 
-Let's create a folder named `node-app` and run the following commands there:
 ```
 mkdir node-app
 cd node-app
@@ -90,7 +186,8 @@ npm init -y
 npm add express pg-promise
 ```
 
-We will need to edit the created `package.json` file. Let's modify the scripts sections to like this:
+We will need to edit the created `package.json` file. Let's modify the `scripts` sections to look like this:
+
 ```json
   "scripts": {
     "start": "node src/index.js",
@@ -98,7 +195,9 @@ We will need to edit the created `package.json` file. Let's modify the scripts s
   },
 ```
 
-And finally create the file `src/index.js` with the source code for our application. It is a very simple application that connects to the database and stores a counter there. Every access to the `/` route increments the counter. 
+This defines two commands: `npm start` will start the app in production mode, and `npm run dev` will start the app in the development mode. Development mode runs the same, but restarts the application every time we change the source code.
+
+Finally let's create the file `src/index.js` with the source code for our application. It is a very simple application that connects to the database, stores a counter there, and increment the counter on every access to the `/` route.
 
 ```js
 const express = require("express");
@@ -166,15 +265,16 @@ initDB().then(() => {
 });
 ```
 
-Now we can run `npm start` or `npm run dev` to start the application. The `npm run dev` command is different, because it will automatically restart the server when source code changes. By default, it connects to the database on the localhost, and if we have our docker compose running it should be working just fine. To test the application we can start both docker-compose and our app, and in visit http://localhost:3000 in the browser. Every page update should increment the displayed counter.
+Let's check the application by running `npm run dev` in the `node-app` folder. While the application is running, you can access http://localhost:3000 and it should show the counter, and increment it every time you update the page. Note that our containers should be running for the app to be able to connect to the database.
 
-#### Putting our application into Docker
+### Putting our application into container
 
-Running application separately from the docker is not handy, so let's add it to the docker-compose setup. 
+Running application separately from the docker is not handy, so let's add it to the docker-compose setup.
 
-First let's create a file named `Dockerfile`:
+We cannot just fetch a preexisting image for our application, instead we need to create our image. To do this, we need to create a file, named `Dockerfile`:
+
 ```dockerfile
-FROM node:25-alpine
+FROM node:24-alpine
 
 # Set working directory inside container
 WORKDIR /app
@@ -192,58 +292,46 @@ COPY src src
 CMD ["npm", "start"]
 ```
 
-This defines a new container, that is based on the Node.js image from the Docker Hub. In my opinion it mostly describes itself, but in short it does this: 
-* Create a folder `/app` inside the container and select it as current folder.
-* Copy files `package.json` and `package-lock.json` into the container.
-* Run `npm install` inside the container to install the dependencies.
-* Copy `src` folder into the container.
-* Specify a command to run when the container is started.
+This file defines a new container. We can read it line by line:
+
+- `FROM node:24-alpine` - container is based on the official Node.js image from the docker hub. We use the current LTS version, which is 24, and the version of the container that is based on Alpine Linux, as these tend to be leaner.
+- `WORKDIR /app` - create a folder `/app` inside the container and select it as current folder.
+- `COPY package*.json ./` - copy files `package.json` and `package-lock.json` into the container.
+- `RUN npm install` - run `npm install` inside the container to install the dependencies.
+- `COPY src src` - copy `src` folder from the host into the container.
+- `CMD ["npm", "start"]` - when the container is run, it will by default run the command `npm start`.
 
 It is worth mentioning that Docker makes snapshots of the image after every command and reuses these during next builds if nothing has changed. We first copy the `package.json` file and install the dependencies, and only after that copy the rest of the source code. This allows Docker to rebuild the image much faster if dependencies did not change as it will reuse everything up to the `COPY src src` step.
 
-#### Add container to the Docker Compose
+### Add container to the Docker Compose
 
 We can build and run the container with our app using docker CLI, but instead let's add to the `docker-compose.yml` file.
 
 ```yml
-  node-app:
-    build: ./node-app
-    restart: always
-    ports:
-      - "3000:3000"
-    environment:
-      POSTGRES_HOST: db
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+node-app:
+  build: ./node-app
+  restart: always
+  ports:
+    - "3000:3000"
+  environment:
+    POSTGRES_HOST: db
+    POSTGRES_USER: ${POSTGRES_USER}
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    POSTGRES_DB: ${POSTGRES_DB}
 ```
 
-Now if we run `docker-compose up` it will build our container and run it. Everything should work just the same: visit http://localhost:3000 and it should display and increment the counter.
+Now if we run `docker compose up` it will build our container and run it. Everything should work just the same: visit http://localhost:3000 and it should display and increment the counter.
 
-If you have changed the sources, docker compose will not detect this automatically, because of this it is better to always start the containers with the `docker-compose up --build` command.
+If you have changed the sources, docker compose will not detect this automatically, because of this it is better to always start the containers with the `docker compose up --build` command.
 
-##### Do not expose postgres
-
-Now, that our app runs inside the Docker, we do not need to expose PostgresSQL ports. Let's remove it from the `docker-compose.yml`:
-```yml
-  db:
-    image: postgres
-    restart: always
-    environment:
-      POSTGRES_USER: $POSTGRES_USER
-      POSTGRES_PASSWORD: $POSTGRES_PASSWORD
-      POSTGRES_DB: $POSTGRES_DB
-    # ports:
-    #   - 5432:5432
-```
-
-#### Separate setup for development
+### Separate setup for development
 
 During development, we change the source code often, and it comes handy to automatically restart the server on every source code change. We even have the `npm run dev` command that does exactly this already.
 
-But it will not work inside Docker, because source files are copied inside the container during the build, so you will need to restart and rebuild everything to apply source code changes. It is not hard, just run `docker-compose down` and then `docker-compose up --detach --build` and that is all, but we can do better.
+But it will not work inside Docker, because source files are copied inside the container during the build, so you will need to restart and rebuild everything to apply source code changes. It is not hard, just run `docker compose down` and then `docker compose up --detach --build` and that is all, but we can do better.
 
 Let's create a file named `docker-compose.dev.yml`:
+
 ```yml
 services:
   node-app:
@@ -252,7 +340,8 @@ services:
     command: ["npm", "run", "dev"]
 ```
 
-It is supposed to override/add parameters to the `docker-compose.yml` file that we already have. We use it with this command:
+This file will be used to override some values in our original `docker-compose.yml` file. This can be done with this command:
+
 ```sh
 docker-compose --file docker-compose.yml --file docker-compose.dev.yml up --build
 ```
@@ -261,27 +350,44 @@ We mount the `src` folder of our app into the container instead of the copied `s
 
 Now if you modify the source code of the application it gets applied immidiately. You can try to modify the message that is displayed with the counter to see this in action.
 
-#### Scripts
+### Do not expose postgres
 
-Depending on the system you we can create shell scripts or batch files, so that we do not forget the exact commands needed to start and stop the containers.
+Now, that our app runs inside the Docker, we do not need to expose PostgresSQL ports. Let's remove it from the `docker-compose.yml`:
+
+```diff
+-    ports:
+-      - 5432:5432
+```
+
+## Scripts
+
+Depending on the system you we can create shell scripts or batch files, so that we do not forget the exact commands needed to start and stop the containers. I'll provide the files that should work on Linux and MacOS.
 
 `start.sh`:
+
 ```sh
 #!/bin/bash
 docker-compose up --build --detach
 ```
 
 `start-dev.sh`:
+
 ```sh
 #!/bin/bash
 docker-compose --file docker-compose.yml --file docker-compose.dev.yml up --build --detach
 ```
 
 `stop.sh`:
+
 ```sh
 #!/bin/bash
 docker-compose down
 ```
 
-### Intermediate results
+Just do not forget to add execution permissions to these files:
 
+```sh
+chmod +x start.sh start-dev.sh stop.sh
+```
+
+### Intermediate results
