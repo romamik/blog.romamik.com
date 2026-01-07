@@ -39,6 +39,10 @@ export default defineConfig({
       },
     }),
   ],
+  redirects: {
+    "/blog/2026-09-25-type-erased-dyn-trait":
+      "/blog/2025-09-25-type-erased-dyn-trait",
+  },
 
   vite: {
     plugins: [tailwindcss()],
