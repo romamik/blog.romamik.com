@@ -1,7 +1,7 @@
 ---
 title: "Top CSS Battle solutions"
 pubDate: 2026-01-07
-description: "Decomposing top CSS Battle solutions"
+description: "Deconstructing top CSS Battle solutions"
 ---
 
 I started doing [CSSBattle](https://cssbattle.dev/) challenges recently. I am not a CSS expert, but that is exactly what makes these challenges interesting for me: I can learn something new while feeling entertained.
