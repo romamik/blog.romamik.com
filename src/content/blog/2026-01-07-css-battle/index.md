@@ -179,7 +179,7 @@ The last trick is to use the `*` selector and nesting to make the CSS even short
 
 After removing the whitespace, this code is equivalent to the top solution.
 
-## 05 January 2025
+## 05 January 2026
 
 ![cssbattle-2026-01-05.png](./cssbattle-2026-01-05.png)
 
